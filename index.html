@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111820">
+<title>BEYOND THE HORIZON — Web Prototype</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111820;color:#eef2e8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+#game{position:fixed;inset:0;background:linear-gradient(#78909a,#9fb49a 48%,#536b50)}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.panel{position:absolute;background:rgba(12,18,22,.78);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 8px 30px #0006}
+#hud{top:max(10px,env(safe-area-inset-top));left:10px;right:10px;padding:10px;font-size:12px;line-height:1.45}
+#title{font-weight:700;letter-spacing:.08em;font-size:13px;margin-bottom:4px}
+.bar{height:6px;background:#26343a;border-radius:5px;overflow:hidden;display:inline-block;width:72px;margin:0 5px;vertical-align:middle}.fill{height:100%;background:#d6e0c5}
+#log{left:10px;right:10px;bottom:104px;max-height:28vh;overflow:hidden;padding:8px;font-size:12px;pointer-events:none}
+.msg{opacity:.9;margin:2px 0}
+#controls{position:absolute;left:0;right:0;bottom:max(12px,env(safe-area-inset-bottom));height:92px;pointer-events:none}
+#stick{position:absolute;left:18px;bottom:8px;width:78px;height:78px;border-radius:50%;background:#ffffff1c;border:1px solid #fff3;pointer-events:auto}
+#knob{position:absolute;width:34px;height:34px;left:22px;top:22px;border-radius:50%;background:#e9eee5aa}
+.actions{position:absolute;right:12px;bottom:0;display:flex;gap:7px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end;max-width:260px}
+button{border:1px solid #fff3;background:#10171dcc;color:#eef2e8;border-radius:12px;padding:9px 10px;font-weight:600;font-size:12px}
+button:active{transform:scale(.96);background:#24333a}
+#menu{top:72px;right:10px;padding:10px;display:none;width:230px;font-size:12px}
+#menu h3{margin:0 0 7px;font-size:13px}
+.row{display:flex;justify-content:space-between;border-bottom:1px solid #fff1;padding:4px 0}
+#hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:9px 13px;pointer-events:none;text-align:center;font-size:12px;opacity:.9}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="world"></canvas>
+<div id="hud" class="panel">
+  <div id="title">BEYOND THE HORIZON · WEB 0.1</div>
+  <div id="stats"></div>
+</div>
+<div id="log" class="panel"></div>
+<div id="menu" class="panel">
+  <h3>Состояние мира</h3>
+  <div id="details"></div>
+</div>
+<div id="hint" class="panel">Исследуй. Наблюдай. Ошибайся.<br>Никаких правильных путей.</div>
+<div id="controls">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="actions">
+    <button data-a="gather">Собрать</button>
+    <button data-a="water">Вода</button>
+    <button data-a="fire">Огонь</button>
+    <button data-a="craft">Крафт</button>
+    <button data-a="observe">Наблюдать</button>
+    <button data-a="sleep">Сон</button>
+    <button data-a="menu">Мир</button>
+  </div>
+</div>
+</div>
+<script>
+const canvas=document.getElementById("world"),ctx=canvas.getContext("2d");
+let W=innerWidth,H=innerHeight,dpr=Math.min(devicePixelRatio||1,2);
+function resize(){W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+"px";canvas.style.height=H+"px";ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener("resize",resize);resize();
+
+const KEY="bth_web_01";
+const state={
+ t:0, day:1, weather:{temp:7,wind:3,humidity:.64,precip:0},
+ p:{x:0,y:0,hunger:22,thirst:18,fatigue:12,temp:36.8,health:100,cal:2200,water:1.4},
+ inv:{wood:2,stone:1,fiber:1,water:0,food:1,firewood:0},
+ fire:{lit:false,fuel:0,heat:0},
+ knowledge:{materials:0,fire:0,water:0,animals:0},
+ resources:[],animals:[],logs:[],
+ seed:Date.now()%2147483647
+};
+function rnd(){state.seed=(state.seed*48271)%2147483647;return state.seed/2147483647}
+function log(s){state.logs.unshift("Day "+state.day+" · "+s);state.logs=state.logs.slice(0,8);renderLog()}
+function renderLog(){document.getElementById("log").innerHTML=state.logs.map(x=>`<div class="msg">${x}</div>`).join("")}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));log("Мир сохранён локально на этом iPhone.");}
+function load(){try{let x=JSON.parse(localStorage.getItem(KEY));if(x){Object.assign(state,x);log("Сохранённый мир восстановлен.");return}}catch(e){}}
+function initWorld(){
+  if(state.resources.length)return;
+  for(let i=0;i<42;i++){
+    let a=rnd()*Math.PI*2,d=80+rnd()*720;
+    state.resources.push({x:Math.cos(a)*d,y:Math.sin(a)*d,type:["wood","stone","fiber","water","food"][Math.floor(rnd()*5)],amt:1+Math.floor(rnd()*4),max:4,resp:.02+rnd()*.03});
+  }
+  for(let i=0;i<10;i++){let a=rnd()*6.28,d=160+rnd()*700;state.animals.push({x:Math.cos(a)*d,y:Math.sin(a)*d,kind:rnd()<.7?"deer":"wolf",energy:1,dir:rnd()*6.28})}
+}
+load();initWorld();renderLog();
+setTimeout(()=>document.getElementById("hint").classList.add("hidden"),4500);
+
+let cam={x:0,y:0},joy={x:0,y:0},keys={};
+addEventListener("keydown",e=>keys[e.key.toLowerCase()]=1);addEventListener("keyup",e=>keys[e.key.toLowerCase()]=0);
+const stick=document.getElementById("stick"),knob=document.getElementById("knob");
+let active=false;
+function joyMove(e){let r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,m=Math.min(27,Math.hypot(dx,dy));let a=Math.atan2(dy,dx);joy.x=Math.cos(a)*m/27;joy.y=Math.sin(a)*m/27;knob.style.transform=`translate(${joy.x*27}px,${joy.y*27}px)`}
+stick.addEventListener("pointerdown",e=>{active=true;stick.setPointerCapture(e.pointerId);joyMove(e)});
+stick.addEventListener("pointermove",e=>{if(active)joyMove(e)});
+stick.addEventListener("pointerup",()=>{active=false;joy.x=joy.y=0;knob.style.transform=""});
+
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function nearestResource(){let best=null,bd=95;for(const r of state.resources){let d=Math.hypot(r.x-state.p.x,r.y-state.p.y);if(d<bd&&r.amt>0){best=r;bd=d}}return best}
+function tick(min=1){
+ state.t+=min; state.day=1+Math.floor(state.t/1440);
+ let s=min/60;
+ state.p.hunger=Math.min(100,state.p.hunger+s*1.8);
+ state.p.thirst=Math.min(100,state.p.thirst+s*2.5);
+ state.p.fatigue=Math.min(100,state.p.fatigue+s*1.0);
+ state.p.cal=Math.max(0,state.p.cal-s*65);
+ state.weather.temp += (rnd()-.5)*.25*s;
+ state.weather.wind=Math.max(0,Math.min(16,state.weather.wind+(rnd()-.5)*.7*s));
+ if(rnd()<.025*s) state.weather.precip=rnd()*.8;
+ else state.weather.precip*=.995;
+ let cold=Math.max(0,8-state.weather.temp)*(1+state.weather.wind/12);
+ if(state.fire.lit) state.p.temp+=(37-state.p.temp)*Math.min(1,.15*s);
+ else state.p.temp+=(36.6-cold*.045-state.p.temp)*Math.min(1,.025*s);
+ if(state.p.temp<35.2)state.p.health-=.35*s;
+ if(state.p.hunger>90||state.p.thirst>90)state.p.health-=.25*s;
+ if(state.p.fatigue>95)state.p.health-=.08*s;
+ state.fire.fuel=Math.max(0,state.fire.fuel-s*(.12+state.weather.wind*.015));
+ state.fire.lit=state.fire.fuel>0;
+ state.fire.heat=state.fire.lit?Math.max(0,100-state.weather.wind*4-state.weather.humidity*35):0;
+ for(const r of state.resources)r.amt=Math.min(r.max,r.amt+r.resp*s);
+ for(const a of state.animals){a.dir+=(rnd()-.5)*.6*s;a.x+=Math.cos(a.dir)*.7*s;a.y+=Math.sin(a.dir)*.7*s;if(Math.hypot(a.x,a.y)>1000)a.dir+=Math.PI}
+ if(state.p.health<=0){state.p.health=0;log("Ты потерял сознание. Мир продолжает жить.");}
+}
+function action(a){
+ if(a==="gather"){let r=nearestResource();if(!r){log("Рядом ничего очевидного. Возможно, есть то, чего ты пока не замечаешь.");return}let q=Math.min(r.amt,2);r.amt-=q;state.inv[r.type]=(state.inv[r.type]||0)+q;state.knowledge.materials=Math.min(5,state.knowledge.materials+1);log(`Собрано: ${r.type} ×${q}. Состояние материала ещё требует изучения.`)}
+ if(a==="water"){let r=state.resources.filter(x=>x.type==="water").sort((a,b)=>dist(a,state.p)-dist(b,state.p))[0];if(r&&dist(r,state.p)<130){state.inv.water+=1;state.knowledge.water++;log("Набрана вода. Она не считается автоматически безопасной.")}else if(state.inv.water>0){state.inv.water--;state.p.water=1.4;state.p.thirst=Math.max(0,state.p.thirst-35);log("Выпита вода. Последствия будут зависеть от её качества.")}else log("Воды поблизости не найдено.")}
+ if(a==="fire"){if(state.fire.lit){state.fire.lit=false;log("Огонь оставлен угасать.");}else if(state.inv.wood>0){state.inv.wood--;state.fire.fuel=5;state.fire.lit=true;state.knowledge.fire++;log("Разведён огонь. Ветер и влажность влияют на его устойчивость.");}else log("Не хватает топлива.")}
+ if(a==="craft"){if(state.inv.wood>=1&&state.inv.stone>=1&&state.inv.fiber>=1){state.inv.wood--;state.inv.stone--;state.inv.fiber--;state.inv.tool=(state.inv.tool||0)+1;log("Собран примитивный инструмент. Это не «уровень» — это приобретённая способность.");}else log("Материалов недостаточно для надёжного инструмента.")}
+ if(a==="observe"){let an=state.animals.find(x=>dist(x,state.p)<220);if(an){state.knowledge.animals++;log(`Наблюдение: ${an.kind}. Поведение не полностью предсказуемо.`)}else log("Ты наблюдаешь местность. Следы могут быть важнее самого животного.");}
+ if(a==="sleep"){let h=8*60;tick(h);state.p.fatigue=Math.max(0,state.p.fatigue-70);state.p.hunger=Math.min(100,state.p.hunger+14);state.p.thirst=Math.min(100,state.p.thirst+18);log("Проснулся. За время сна мир изменился.");save();}
+ if(a==="menu"){let m=document.getElementById("menu");m.style.display=m.style.display==="block"?"none":"block";}
+ if(a==="save"){save()}
+}
+document.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>action(b.dataset.a)));
+
+function update(){
+ let x=joy.x||(keys["a"]?-1:0)+(keys["d"]?1:0),y=joy.y||(keys["w"]?-1:0)+(keys["s"]?1:0);
+ let m=Math.hypot(x,y);if(m>1){x/=m;y/=m}
+ let speed=3.0*(state.p.fatigue>85?.55:1)*(state.p.health<40?.65:1);
+ state.p.x+=x*speed;state.p.y+=y*speed;cam.x=state.p.x;cam.y=state.p.y;
+ tick(.08);
+}
+function worldToScreen(x,y){return [W/2+(x-cam.x),H/2+(y-cam.y)]}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ // stylized terrain
+ ctx.fillStyle="#8ca48b";ctx.fillRect(0,0,W,H);
+ for(let i=-2;i<16;i++)for(let j=-2;j<12;j++){let x=i*120-(cam.x%120),y=j*120-(cam.y%120);ctx.fillStyle=((i+j)&1)?"#819a7d":"#91a987";ctx.fillRect(x,y,120,120)}
+ // water patches
+ for(const r of state.resources)if(r.type==="water"){let [x,y]=worldToScreen(r.x,r.y);ctx.fillStyle="#607f86";ctx.beginPath();ctx.ellipse(x,y,38,25,0,0,7);ctx.fill()}
+ // resources
+ for(const r of state.resources){if(r.type==="water")continue;let [x,y]=worldToScreen(r.x,r.y);if(x<-20||x>W+20||y<-20||y>H+20)continue;
+   ctx.fillStyle=r.type==="wood"?"#435a3c":r.type==="stone"?"#686d69":r.type==="fiber"?"#667744":"#9b704c";
+   if(r.type==="wood"){ctx.fillRect(x-5,y-16,10,32);ctx.beginPath();ctx.arc(x,y-18,17,0,7);ctx.fill()}
+   else{ctx.beginPath();ctx.arc(x,y,8+(r.amt*2),0,7);ctx.fill()}
+ }
+ // animals
+ for(const a of state.animals){let [x,y]=worldToScreen(a.x,a.y);if(x<-30||x>W+30||y<-30||y>H+30)continue;ctx.fillStyle=a.kind==="wolf"?"#4d5554":"#876d53";ctx.beginPath();ctx.ellipse(x,y,12,7,0,0,7);ctx.fill();ctx.fillStyle="#111";ctx.fillRect(x+8,y-3,3,3)}
+ // player
+ ctx.fillStyle="#e9eee5";ctx.beginPath();ctx.arc(W/2,H/2,9,0,7);ctx.fill();ctx.strokeStyle="#202b2a";ctx.stroke();
+ if(state.fire.lit){ctx.fillStyle="#d68c4a";ctx.beginPath();ctx.arc(W/2+25,H/2+10,10,0,7);ctx.fill()}
+}
+function hud(){
+ const p=state.p,w=state.weather;
+ document.getElementById("stats").innerHTML=
+ `День ${state.day} · ${Math.floor(state.t%1440/60).toString().padStart(2,"0")}:${Math.floor(state.t%60).toString().padStart(2,"0")} · ${w.temp.toFixed(1)}°C · ветер ${w.wind.toFixed(1)} м/с<br>`+
+ `Голод ${p.hunger.toFixed(0)} <span class="bar"><i class="fill" style="width:${100-p.hunger}%"></i></span>`+
+ `Жажда ${p.thirst.toFixed(0)} <span class="bar"><i class="fill" style="width:${100-p.thirst}%"></i></span>`+
+ `Усталость ${p.fatigue.toFixed(0)} <span class="bar"><i class="fill" style="width:${100-p.fatigue}%"></i></span>`+
+ `Здоровье ${p.health.toFixed(0)} · T ${p.temp.toFixed(1)}°C · Дрова ${state.inv.wood} · Камень ${state.inv.stone} · Еда ${state.inv.food}`;
+ document.getElementById("details").innerHTML=
+ `<div class="row"><span>Координаты</span><b>${p.x.toFixed(0)}, ${p.y.toFixed(0)}</b></div>`+
+ `<div class="row"><span>Огонь</span><b>${state.fire.lit?"горит":"погас"}</b></div>`+
+ `<div class="row"><span>Знание материалов</span><b>${state.knowledge.materials}/5</b></div>`+
+ `<div class="row"><span>Знание огня</span><b>${state.knowledge.fire}</b></div>`+
+ `<div class="row"><span>Наблюдения животных</span><b>${state.knowledge.animals}</b></div>`+
+ `<div class="row"><span>Ресурсы</span><b>${state.resources.filter(r=>r.amt>0).length}</b></div>`;
+}
+let last=performance.now();
+function frame(t){let dt=Math.min(.05,(t-last)/1000);last=t;update();draw();hud();requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+setInterval(save,30000);
+addEventListener("beforeunload",save);
+</script>
+</body></html>
