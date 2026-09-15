@@ -1,3 +1,3 @@
-BTH WEB 2.5 SELF TEST
-
-Standalone iPhone control test. No external files, libraries or service worker. Press SELF TEST or test arrows/joystick.
+BTH PLAYABLE 0.6
+Следующая игровая контрольная точка.
+Добавлены: динамическая погода, состояние/история ресурсов, наблюдения и открытия, память мира, влияние среды на выживание, погодная визуализация.

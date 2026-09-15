@@ -19,7 +19,7 @@ button:active{transform:scale(.96);background:#233d2c}
 h2{margin:6px 0 14px}.bar{height:7px;background:#ffffff18;border-radius:9px;overflow:hidden}.fill{height:100%;background:#b7d39b}
 </style></head><body>
 <canvas id="c"></canvas>
-<div id="top"><div class="panel"><b>BEYOND THE HORIZON</b><br>PLAYABLE 0.5 · день <span id="day">1</span> · <span id="clock">08:00</span></div>
+<div id="top"><div class="panel"><b>BEYOND THE HORIZON</b><br>PLAYABLE 0.6 · день <span id="day">1</span> · <span id="clock">08:00</span><br><span id="weather">ясно</span> · <span id="wt">12°C</span></div>
 <div class="panel">HP <span id="hp">100</span> · Вода <span id="water">80</span> · Еда <span id="food">80</span> · Энергия <span id="energy">100</span></div></div>
 <div id="msg"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -39,20 +39,21 @@ const KEY='bth05-save';
 const rnd=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 let S={x:0,y:0,day:1,minutes:480,hp:100,water:80,food:80,energy:100,temp:37,
 inv:{wood:0,stone:0,berry:0,rawmeat:0,cooked:0,water:0,fuel:0},
-tools:{knife:false,axe:false,shelter:false,fire:false},known:[],world:[],animals:[]};
+tools:{knife:false,axe:false,shelter:false,fire:false},known:[],memory:[],
+weather:{type:'ясно',temp:12,wind:0.2,humidity:0.45},world:[],animals:[]};
 
 function makeWorld(){
  S.world=[];S.animals=[];
  const types=['tree','tree','tree','rock','berry','berry','pond','ruin'];
  for(let i=0;i<130;i++){let a=rnd(0,Math.PI*2),r=Math.sqrt(Math.random())*1800;
   let type=types[Math.floor(Math.random()*types.length)];
-  S.world.push({x:Math.cos(a)*r,y:Math.sin(a)*r,type,amount:type==='tree'?rnd(2,6):type==='rock'?rnd(1,4):type==='berry'?rnd(1,3):1,respawn:rnd(0,1)});
+  S.world.push({x:Math.cos(a)*r,y:Math.sin(a)*r,type,amount:type==='tree'?rnd(2,6):type==='rock'?rnd(1,4):type==='berry'?rnd(1,3):1,condition:rnd(.65,1),wet:0,history:[]});
  }
  for(let i=0;i<22;i++){let a=rnd(0,Math.PI*2),r=rnd(180,1700);S.animals.push({x:Math.cos(a)*r,y:Math.sin(a)*r,dx:rnd(-1,1),dy:rnd(-1,1),fear:0,kind:Math.random()<.65?'deer':'wolf'});}
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено')}
 function load(){try{let v=JSON.parse(localStorage.getItem(KEY));if(v){S=v;toast('Сохранение загружено');return}}catch(e){}makeWorld()}
-load(); if(!S.world?.length)makeWorld();
+load(); if(!S.world?.length)makeWorld(); if(!S.weather)S.weather={type:'ясно',temp:12,wind:.2,humidity:.45}; if(!S.memory)S.memory=[];
 
 const input={x:0,y:0};let joyId=null;
 const joy=document.getElementById('joy'),knob=document.getElementById('knob');
@@ -67,7 +68,7 @@ function clock(){let h=Math.floor(S.minutes/60)%24,m=Math.floor(S.minutes%60);re
 function nearby(type,max=72){let best=null,bd=max;for(let o of S.world)if(o.type===type){let d=dist(S,o);if(d<bd&&o.amount>0){best=o;bd=d}}return best}
 function collect(){
  let types=[['tree','wood'],['rock','stone'],['berry','berry']];
- for(let [t,k] of types){let o=nearby(t);if(o){let n=Math.max(1,Math.floor(o.amount));S.inv[k]+=n;o.amount=0;toast('Получено: '+k+' × '+n);return}}
+ for(let [t,k] of types){let o=nearby(t);if(o){let n=Math.max(1,Math.floor(o.amount));S.inv[k]+=n;o.amount=0;o.history.push({day:S.day,action:'сбор'});remember('Извлечён ресурс: '+k);discover(k==='wood'?'наблюдение: древесина имеет различное состояние':'наблюдение: ресурс имеет конечный запас');toast('Получено: '+k+' × '+n);return}}
  let a=S.animals.find(a=>dist(S,a)<70);if(a&&a.kind==='deer'){S.inv.rawmeat++;toast('Получено: сырое мясо ×1');return}
  toast('Рядом нечего собрать');
 }
@@ -84,23 +85,58 @@ function craft(){
 function sleep(){let h=S.tools.shelter?8:4;S.minutes=(S.minutes+h*60)%1440;S.day++;S.energy=Math.min(100,S.energy+70);S.food=Math.max(0,S.food-10);S.water=Math.max(0,S.water-10);toast('Проснулся. Мир продолжал жить без тебя.')}
 function openSheet(title,body){document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;document.getElementById('sheet').classList.add('show')}
 function inv(){openSheet('Инвентарь',Object.entries(S.inv).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')+
-`<h3>Инструменты</h3>`+Object.entries(S.tools).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v?'есть':'нет'}</b></div>`).join(''))}
+`<h3>Инструменты</h3>`+Object.entries(S.tools).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v?'есть':'нет'}</b></div>`).join('')+
+`<h3>Знания</h3>`+(S.known?.length?S.known.map(x=>`<div class="row"><span>${x}</span></div>`).join(''):'<div class="small">Пока нет подтверждённых наблюдений.</div>')+
+`<h3>Память мира</h3>`+(S.memory?.slice(-8).map(x=>`<div class="row"><span>День ${x.day}</span><span>${x.text}</span></div>`).join('')||'<div class="small">История пока пуста.</div>'))}
 document.getElementById('act').onclick=collect;document.getElementById('eat').onclick=eat;document.getElementById('drink').onclick=drink;document.getElementById('fire').onclick=makeFire;document.getElementById('craft').onclick=craft;document.getElementById('sleep').onclick=sleep;document.getElementById('inv').onclick=inv;document.getElementById('save').onclick=save;document.getElementById('close').onclick=()=>document.getElementById('sheet').classList.remove('show');
 
 let last=performance.now(),sim=0;
+
+function remember(text){
+ if(!S.memory)S.memory=[];
+ S.memory.push({day:S.day,minute:S.minutes,text});
+ if(S.memory.length>80)S.memory.shift();
+}
+function weatherStep(){
+ let r=Math.random();
+ if(r<.08)S.weather.type='дождь';
+ else if(r<.15)S.weather.type='ветер';
+ else if(r<.19)S.weather.type='туман';
+ else if(r<.22)S.weather.type='снег';
+ else S.weather.type='ясно';
+ S.weather.wind=Math.max(.05,Math.min(1.2,S.weather.wind+rnd(-.12,.12)));
+ S.weather.humidity=Math.max(.2,Math.min(1,S.weather.humidity+rnd(-.08,.08)));
+ S.weather.temp=Math.max(-12,Math.min(26,S.weather.temp+rnd(-2,2)));
+}
+function discover(text){
+ if(!S.known.includes(text)){S.known.push(text);remember('Открытие: '+text);toast('Наблюдение: '+text)}
+}
+function environmentalStep(dt){
+ if(!S.weather)S.weather={type:'ясно',temp:12,wind:.2,humidity:.45};
+ if(S.weather.type==='дождь'){
+   for(let o of S.world) if(o.type==='tree' || o.type==='berry') o.wet=Math.min(1,o.wet+dt*.01);
+   if(S.tools.fire){S.tools.fire=Math.random()<dt*.008?false:S.tools.fire}
+ }
+ if(S.weather.type==='снег') S.temp=Math.max(34,S.temp-dt*.004);
+ else if(S.tools.fire && dist(S,{x:S.x,y:S.y})<130) S.temp=Math.min(37,S.temp+dt*.008);
+ if(S.weather.type==='ветер') S.energy=Math.max(0,S.energy-dt*.012);
+}
+
 function update(dt){
  let kx=(keys['d']?1:0)-(keys['a']?1:0),ky=(keys['s']?1:0)-(keys['w']?1:0);
  let ix=Math.abs(input.x)+Math.abs(input.y)?input.x:kx,iy=Math.abs(input.x)+Math.abs(input.y)?input.y:ky;
  let mag=Math.hypot(ix,iy)||1,speed=2.4*(S.energy>5?1:.45);S.x+=ix/mag*speed*dt*60;S.y+=iy/mag*speed*dt*60;
  S.minutes=(S.minutes+dt*0.7)%1440;sim+=dt;
- if(sim>10){sim=0;S.food=Math.max(0,S.food-dt*.08);S.water=Math.max(0,S.water-dt*.12);S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*dt*1.3);
+ if(sim>10){sim=0;weatherStep();environmentalStep(10);S.food=Math.max(0,S.food-dt*.08);S.water=Math.max(0,S.water-dt*.12);S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*dt*1.3);
    if(S.food<15||S.water<15)S.hp=Math.max(0,S.hp-dt*.4);
    for(let a of S.animals){let d=dist(S,a);if(d<170)a.fear=Math.min(10,a.fear+dt);else a.fear=Math.max(0,a.fear-dt*.15);
     let ang=a.fear>0?Math.atan2(a.y-S.y,a.x-S.x):Math.atan2(a.dy,a.dx);a.dx=Math.cos(ang);a.dy=Math.sin(ang);a.x+=a.dx*dt*18;a.y+=a.dy*dt*18}
  }
 }
 function draw(){
- ctx.fillStyle='#5f7f58';ctx.fillRect(0,0,W,H);
+ ctx.fillStyle=S.weather?.type==='туман'?'#6d796d':S.weather?.type==='снег'?'#80908c':'#5f7f58';ctx.fillRect(0,0,W,H);
+ if(S.weather?.type==='дождь'){ctx.strokeStyle='#ffffff35';ctx.lineWidth=1;for(let i=0;i<70;i++){let x=(i*97+(S.minutes*3))%W,y=(i*53)%H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5,y+14);ctx.stroke()}}
+ if(S.weather?.type==='снег'){ctx.fillStyle='#ffffffaa';for(let i=0;i<60;i++){let x=(i*71)%W,y=(i*43+(S.minutes*2))%H;ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.fill()}}
  let camx=S.x,camy=S.y;
  for(let o of S.world){let sx=W/2+o.x-camx,sy=H/2+o.y-camy;if(sx<-60||sx>W+60||sy<-60||sy>H+60||o.amount<=0)continue;
   ctx.save();ctx.translate(sx,sy);
@@ -115,6 +151,7 @@ function draw(){
  ctx.fillStyle='#e8d2a1';ctx.beginPath();ctx.arc(W/2,H/2,11,0,7);ctx.fill();ctx.strokeStyle='#33291e';ctx.lineWidth=3;ctx.stroke();
  document.getElementById('day').textContent=S.day;document.getElementById('clock').textContent=clock();
  document.getElementById('hp').textContent=Math.round(S.hp);document.getElementById('water').textContent=Math.round(S.water);document.getElementById('food').textContent=Math.round(S.food);document.getElementById('energy').textContent=Math.round(S.energy);
+ document.getElementById('weather').textContent=S.weather?.type||'ясно';document.getElementById('wt').textContent=Math.round(S.weather?.temp||12)+'°C';
 }
 function loop(t){let dt=Math.min(.05,(t-last)/1000);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
