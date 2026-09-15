@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BEYOND THE HORIZON — Pages Diagnostic</title>
+<style>
+html,body{margin:0;min-height:100%;background:#081018;color:#eef4f7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:28px;box-sizing:border-box}
+main{max-width:760px;margin:auto}
+h1{font-size:28px;margin:0 0 8px}
+h2{font-size:18px;margin:28px 0 12px}
+p{color:#aebbc4;line-height:1.5}
+.card{background:#111c25;border:1px solid #30404b;border-radius:16px;padding:18px;margin:14px 0}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #26343e}
+.row:last-child{border-bottom:0}
+.dot{width:14px;height:14px;border-radius:50%;background:#d94b4b;flex:none}
+.ok .dot{background:#51c878}
+.warn .dot{background:#e2ad43}
+.name{font-weight:650;flex:1}
+.value{color:#aebbc4;text-align:right;word-break:break-all}
+button{width:100%;padding:15px;border:0;border-radius:12px;background:#dfe8ed;color:#071018;font-size:16px;font-weight:700}
+pre{white-space:pre-wrap;word-break:break-word;color:#c9d5dc;font-size:13px}
+.small{font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>BEYOND THE HORIZON</h1>
+<p>GitHub Pages diagnostic build. This page intentionally has no external CSS, JavaScript, images, fonts, libraries, or Service Worker.</p>
+
+<div class="card">
+<div id="html" class="row ok"><span class="dot"></span><span class="name">HTML loaded</span><span class="value">OK</span></div>
+<div id="css" class="row ok"><span class="dot"></span><span class="name">CSS loaded</span><span class="value">OK</span></div>
+<div id="js" class="row"><span class="dot"></span><span class="name">JavaScript executed</span><span id="jsv" class="value">testing…</span></div>
+<div id="canvas" class="row"><span class="dot"></span><span class="name">Canvas</span><span id="canvasv" class="value">testing…</span></div>
+<div id="storage" class="row"><span class="dot"></span><span class="name">LocalStorage</span><span id="storagev" class="value">testing…</span></div>
+</div>
+
+<div class="card">
+<h2>Publication information</h2>
+<pre id="info">collecting…</pre>
+</div>
+
+<div class="card">
+<h2>Next test</h2>
+<p>If all checks above are green, GitHub Pages is delivering and executing HTML/JS correctly. Then the problem is inside the game build, not Pages.</p>
+<button id="reload">Reload with cache-busting URL</button>
+</div>
+
+<script>
+(function(){
+  function pass(id,value){
+    const r=document.getElementById(id), v=document.getElementById(id+'v');
+    r.classList.add('ok'); r.classList.remove('warn');
+    if(v)v.textContent=value;
+  }
+  function fail(id,value){
+    const r=document.getElementById(id), v=document.getElementById(id+'v');
+    r.classList.remove('ok'); r.classList.add('warn');
+    if(v)v.textContent=value;
+  }
+
+  pass('js','OK');
+
+  try{
+    const c=document.createElement('canvas');
+    c.width=1;c.height=1;
+    const ctx=c.getContext('2d');
+    if(ctx) pass('canvas','OK'); else fail('canvas','NO 2D CONTEXT');
+  }catch(e){fail('canvas','ERROR: '+e.message)}
+
+  try{
+    const k='bth_pages_diag';
+    localStorage.setItem(k,'ok');
+    const v=localStorage.getItem(k);
+    localStorage.removeItem(k);
+    v==='ok'?pass('storage','OK'):fail('storage','READBACK FAILED');
+  }catch(e){fail('storage','BLOCKED: '+e.message)}
+
+  document.getElementById('info').textContent =
+    'URL: '+location.href+
+    '\\nOrigin: '+location.origin+
+    '\\nPath: '+location.pathname+
+    '\\nProtocol: '+location.protocol+
+    '\\nUser agent: '+navigator.userAgent+
+    '\\nTime: '+new Date().toISOString();
+
+  document.getElementById('reload').onclick=function(){
+    location.href=location.pathname+'?diag='+Date.now();
+  };
+})();
+</script>
+</main>
+</body>
+</html>
