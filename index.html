@@ -1,60 +1,14 @@
-<!doctype html>
-<html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>BEYOND THE HORIZON · CONTROL TEST</title>
-<style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101812;color:#eee;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
-#game{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
-#hud{position:fixed;left:10px;top:10px;z-index:10;background:#000b;padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.45;pointer-events:none}
-#status{font-weight:700}#coords{opacity:.85}#hint{opacity:.75}
-#joy{position:fixed;left:24px;bottom:28px;width:154px;height:154px;border-radius:50%;background:#fff2;border:2px solid #fff6;z-index:20;touch-action:none;user-select:none;-webkit-user-select:none}
-#knob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px;border-radius:50%;background:#fff7;border:2px solid #fff9;pointer-events:none}
-#pad{position:fixed;right:20px;bottom:30px;width:154px;height:154px;z-index:20;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:6px;touch-action:none}
-.d{border:1px solid #fff5;border-radius:14px;background:#fff2;color:#fff;font-size:25px;font-weight:700;touch-action:none;user-select:none}
-#up{grid-column:2}#left{grid-column:1;grid-row:2}#right{grid-column:3;grid-row:2}#down{grid-column:2;grid-row:3}
-#reset{position:fixed;right:12px;top:10px;z-index:30;padding:9px 12px;border:0;border-radius:10px;background:#fff;color:#111;font-weight:700}
-</style></head><body>
-<canvas id="game"></canvas>
-<div id="hud"><div id="status">УПРАВЛЕНИЕ: ожидаю касание</div><div id="coords">Игрок: 0.0 / 0.0</div><div id="hint">Проверь джойстик и стрелки справа</div></div>
-<button id="reset">Сброс теста</button>
-<div id="joy"><div id="knob"></div></div>
-<div id="pad"><button class="d" id="up">▲</button><button class="d" id="left">◀</button><button class="d" id="right">▶</button><button class="d" id="down">▼</button></div>
-<script>
-"use strict";
-const c=document.getElementById('game'),ctx=c.getContext('2d');
-const statusEl=document.getElementById('status'),coordsEl=document.getElementById('coords');
-let W=0,H=0,dpr=1;
-function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize,{passive:true});resize();
-const P={x:0,y:0}; let inputX=0,inputY=0,active=false,lastInput='нет';
-function setInput(x,y,src){inputX=Math.max(-1,Math.min(1,x));inputY=Math.max(-1,Math.min(1,y));active=Math.abs(inputX)+Math.abs(inputY)>0;lastInput=src;statusEl.textContent=active?`УПРАВЛЕНИЕ: ${src} ✓`:`УПРАВЛЕНИЕ: касание зарегистрировано ✓`;draw()}
-function clearInput(src){inputX=0;inputY=0;active=false;lastInput=src;statusEl.textContent=`ОТПУСКАНИЕ: ${src} ✓`}
-const joy=document.getElementById('joy'),knob=document.getElementById('knob');
-let joyPointer=null;
-function joyPoint(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy;const max=r.width*.36,mag=Math.hypot(dx,dy)||1; if(mag>max){dx=dx/mag*max;dy=dy/mag*max}knob.style.transform=`translate(${dx}px,${dy}px)`;setInput(dx/max,dy/max,'ДЖОЙСТИК')}
-joy.addEventListener('pointerdown',e=>{joyPointer=e.pointerId;joy.setPointerCapture?.(e.pointerId);joyPoint(e);e.preventDefault()});
-joy.addEventListener('pointermove',e=>{if(e.pointerId===joyPointer){joyPoint(e);e.preventDefault()}});
-function joyUp(e){if(e.pointerId===joyPointer){joyPointer=null;knob.style.transform='translate(0,0)';clearInput('ДЖОЙСТИК');e.preventDefault()}}
-joy.addEventListener('pointerup',joyUp);joy.addEventListener('pointercancel',joyUp);joy.addEventListener('lostpointercapture',()=>{joyPointer=null;knob.style.transform='translate(0,0)'});
-['touchstart','touchmove','touchend','touchcancel'].forEach(t=>joy.addEventListener(t,e=>e.preventDefault(),{passive:false}));
-const keys={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
-for(const [id,v] of Object.entries(keys)){
- const b=document.getElementById(id);
- const down=e=>{e.preventDefault();b.setPointerCapture?.(e.pointerId);setInput(v[0],v[1],'КНОПКА '+id.toUpperCase())};
- const up=e=>{e.preventDefault();clearInput('КНОПКА '+id.toUpperCase())};
- b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);
- b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});b.addEventListener('touchend',e=>e.preventDefault(),{passive:false});
-}
-addEventListener('keydown',e=>{const k={ArrowUp:'up',w:'up',ArrowDown:'down',s:'down',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'}[e.key];if(k){e.preventDefault();setInput(...keys[k],'КЛАВИАТУРА')}});
-addEventListener('keyup',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key))clearInput('КЛАВИАТУРА')});
-document.getElementById('reset').onclick=()=>{P.x=P.y=0;clearInput('СБРОС');};
-function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#17251c';ctx.fillRect(0,0,W,H);
- const scale=Math.min(W,H)/8,ox=W/2-P.x*scale,oy=H/2-P.y*scale;
- ctx.strokeStyle='#ffffff14';ctx.lineWidth=1;for(let x=-20;x<=20;x++){ctx.beginPath();ctx.moveTo(ox+x*scale,0);ctx.lineTo(ox+x*scale,H);ctx.stroke()}for(let y=-20;y<=20;y++){ctx.beginPath();ctx.moveTo(0,oy+y*scale);ctx.lineTo(W,oy+y*scale);ctx.stroke()}
- for(let x=-8;x<=8;x++)for(let y=-8;y<=8;y++){if((x*x+y*y)%7===0){ctx.fillStyle='#35553b';ctx.beginPath();ctx.arc(ox+x*scale,oy+y*scale,12,0,7);ctx.fill()}}
- ctx.fillStyle='#f4d35e';ctx.beginPath();ctx.arc(W/2,H/2,12,0,7);ctx.fill();
- coordsEl.textContent=`Игрок: ${P.x.toFixed(2)} / ${P.y.toFixed(2)} · Ввод: ${lastInput}`;
-}
-let last=performance.now();function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;if(active){P.x+=inputX*dt*2.2;P.y+=inputY*dt*2.2}draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
-window.onerror=(m,s,l,col,e)=>{statusEl.textContent='ОШИБКА JS: '+m;};
-window.addEventListener('unhandledrejection',e=>{statusEl.textContent='ОШИБКА: '+e.reason});
-</script></body></html>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>BEYOND THE HORIZON 2.5</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0b120e;font-family:-apple-system,BlinkMacSystemFont,sans-serif;touch-action:none}#world{position:fixed;inset:0;width:100%;height:100%;display:block}#hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;z-index:20;color:#fff;background:rgba(0,0,0,.65);border-radius:14px;padding:10px;font-size:14px;pointer-events:none}#status{font-weight:700}#diag{opacity:.85;margin-top:3px}#controls{position:fixed;left:0;right:0;bottom:max(18px,env(safe-area-inset-bottom));height:190px;z-index:30;pointer-events:none}.btn{pointer-events:auto;position:absolute;width:76px;height:58px;border:2px solid rgba(255,255,255,.65);border-radius:16px;background:rgba(255,255,255,.25);color:#fff;font-size:30px;font-weight:800;-webkit-appearance:none;appearance:none;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}.btn:active{background:rgba(255,255,255,.55);transform:scale(.96)}#u{left:calc(50% - 38px);top:0}#d{left:calc(50% - 38px);bottom:0}#l{left:calc(50% - 122px);top:66px}#r{right:calc(50% - 122px);top:66px}#joy{position:absolute;left:18px;bottom:10px;width:150px;height:150px;border-radius:50%;border:3px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12);pointer-events:auto;touch-action:none}#stick{position:absolute;width:64px;height:64px;left:50%;top:50%;margin:-32px;border-radius:50%;background:rgba(255,255,255,.55);border:2px solid #fff;pointer-events:none}#self{position:fixed;right:10px;top:70px;z-index:40;padding:9px 12px;border:0;border-radius:12px;background:#fff;color:#111;font-weight:800;touch-action:manipulation}.ok{color:#b8ffb8}.bad{color:#ffb8b8}</style></head><body><canvas id="world"></canvas><div id="hud"><div id="status">ГОТОВ. Нажми любую стрелку.</div><div id="diag">Касаний: 0 · Движение: 0.00 · Событие: —</div></div><button id="self">SELF TEST</button><div id="controls"><div id="joy"><div id="stick"></div></div><button class="btn" id="u" data-x="0" data-y="-1">▲</button><button class="btn" id="l" data-x="-1" data-y="0">◀</button><button class="btn" id="r" data-x="1" data-y="0">▶</button><button class="btn" id="d" data-x="0" data-y="1">▼</button></div><script>(function(){'use strict';
+const c=document.getElementById('world'),x=c.getContext('2d'),status=document.getElementById('status'),diag=document.getElementById('diag'),self=document.getElementById('self'),joy=document.getElementById('joy'),stick=document.getElementById('stick');let W,H,D=1,px=0,py=0,ix=0,iy=0,active=false,last=performance.now(),touches=0,moved=0,eventName='—';
+function size(){W=innerWidth;H=innerHeight;D=Math.min(devicePixelRatio||1,2);c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';x.setTransform(D,0,0,D,0,0)}addEventListener('resize',size);size();
+function render(){x.fillStyle='#17251c';x.fillRect(0,0,W,H);const s=Math.min(W,H)/7,ox=W/2-px*s,oy=H/2-py*s;x.strokeStyle='rgba(255,255,255,.08)';for(let i=-20;i<=20;i++){x.beginPath();x.moveTo(ox+i*s,0);x.lineTo(ox+i*s,H);x.stroke();x.beginPath();x.moveTo(0,oy+i*s);x.lineTo(W,oy+i*s);x.stroke()}for(let i=-10;i<=10;i++)for(let j=-8;j<=8;j++)if((i*i+j*j)%5===0){x.fillStyle='#31523a';x.beginPath();x.arc(ox+i*s,oy+j*s,10,0,Math.PI*2);x.fill()}x.fillStyle='#f4d35e';x.beginPath();x.arc(W/2,H/2,13,0,Math.PI*2);x.fill();diag.textContent='Касаний: '+touches+' · Движение: '+Math.hypot(px,py).toFixed(2)+' · Событие: '+eventName}
+function setInput(a,b,name){ix=a;iy=b;active=true;eventName=name;status.textContent='УПРАВЛЕНИЕ: '+name+' ✓';status.className='ok';render()}
+function stop(name){ix=iy=0;active=false;eventName=name;render()}
+function bindButton(b){function down(e){if(e.cancelable)e.preventDefault();touches++;setInput(+b.dataset.x,+b.dataset.y,'КНОПКА '+b.id.toUpperCase());try{b.setPointerCapture&&b.setPointerCapture(e.pointerId)}catch(_){}return false}function up(e){if(e.cancelable)e.preventDefault();stop('отпускание '+b.id.toUpperCase());return false}b.addEventListener('pointerdown',down,{passive:false});b.addEventListener('pointerup',up,{passive:false});b.addEventListener('pointercancel',up,{passive:false});b.addEventListener('touchstart',down,{passive:false});b.addEventListener('touchend',up,{passive:false});b.addEventListener('mousedown',down);b.addEventListener('mouseup',up);b.onclick=function(e){setInput(+b.dataset.x,+b.dataset.y,'CLICK '+b.id.toUpperCase());setTimeout(()=>stop('click '+b.id.toUpperCase()),120)} }
+['u','d','l','r'].forEach(id=>bindButton(document.getElementById(id)));
+let jid=null;function joyMove(e){const q=joy.getBoundingClientRect(),cx=q.left+q.width/2,cy=q.top+q.height/2,m=q.width*.34;let dx=e.clientX-cx,dy=e.clientY-cy,n=Math.hypot(dx,dy)||1;if(n>m){dx=dx/n*m;dy=dy/n*m}stick.style.transform='translate('+dx+'px,'+dy+'px)';setInput(dx/m,dy/m,'ДЖОЙСТИК')}
+function ju(e){if(jid===e.pointerId||jid===null){jid=null;stick.style.transform='translate(0,0)';stop('джойстик отпускание')}}joy.addEventListener('pointerdown',e=>{if(e.cancelable)e.preventDefault();touches++;jid=e.pointerId;try{joy.setPointerCapture(e.pointerId)}catch(_){}joyMove(e)},{passive:false});joy.addEventListener('pointermove',e=>{if(e.pointerId===jid){if(e.cancelable)e.preventDefault();joyMove(e)}},{passive:false});joy.addEventListener('pointerup',ju,{passive:false});joy.addEventListener('pointercancel',ju,{passive:false});joy.addEventListener('touchstart',e=>{if(e.cancelable)e.preventDefault();touches++;const t=e.changedTouches[0];joyMove(t)},{passive:false});joy.addEventListener('touchmove',e=>{if(e.cancelable)e.preventDefault();const t=e.changedTouches[0];joyMove(t)},{passive:false});joy.addEventListener('touchend',e=>{if(e.cancelable)e.preventDefault();ju({pointerId:jid})},{passive:false});
+addEventListener('keydown',e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(m){e.preventDefault();setInput(m[0],m[1],'КЛАВИАТУРА')}});addEventListener('keyup',e=>{if(/Arrow|^[wasd]$/.test(e.key))stop('клавиатура отпускание')});
+self.onclick=()=>{status.textContent='SELF TEST: запускаю';status.className='';let b=document.getElementById('r');b.click();setTimeout(()=>{const ok=Math.hypot(px,py)>0.05;status.textContent=ok?'SELF TEST: PASS ✓':'SELF TEST: FAIL';status.className=ok?'ok':'bad'},300)};
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;if(active){px+=ix*dt*2.5;py+=iy*dt*2.5;moved+=Math.abs(ix)+Math.abs(iy)}render();requestAnimationFrame(loop)}render();requestAnimationFrame(loop);window.onerror=(m)=>{status.textContent='JS ERROR: '+m;status.className='bad'};window.onunhandledrejection=e=>{status.textContent='ERROR: '+e.reason;status.className='bad'};
+})();</script></body></html>
