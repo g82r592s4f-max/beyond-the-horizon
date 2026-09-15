@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><title>BEYOND THE HORIZON · PLAYABLE 0.4 · GAME</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+#version{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;color:#fff8;font-size:18px;font-weight:800;pointer-events:none;opacity:.0}#hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;z-index:5;display:flex;justify-content:space-between;pointer-events:none}
+.panel{background:#07100bcc;border:1px solid #ffffff22;border-radius:14px;padding:9px 11px;color:#eee;font-size:12px;line-height:1.35;backdrop-filter:blur(6px)}
+#msg{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:7;background:#07100bdd;border:1px solid #ffffff33;border-radius:14px;padding:12px 16px;color:#fff;max-width:85%;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
+#actions{position:fixed;right:16px;bottom:22px;z-index:10;display:grid;grid-template-columns:repeat(2,74px);gap:9px}
+button{appearance:none;border:1px solid #ffffff44;background:#101a16dd;color:#fff;border-radius:16px;min-height:54px;font-size:12px;font-weight:600;touch-action:manipulation}
+button:active{transform:scale(.96);background:#26382e}
+#joy{position:fixed;left:20px;bottom:24px;width:156px;height:156px;border-radius:50%;background:#ffffff16;border:2px solid #ffffff45;z-index:10;touch-action:none}
+#stick{position:absolute;width:66px;height:66px;left:50%;top:50%;margin:-33px;border-radius:50%;background:#ffffff55;border:2px solid #ffffff77;transform:translate(0,0);pointer-events:none}
+#help{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:4;color:#ffffffaa;font-size:11px;pointer-events:none;white-space:nowrap}
+@media(max-width:520px){#help{display:none}}
+</style></head><body>
+<canvas id="world"></canvas>
+<div id="version">BTH GAME 0.4</div><div id="hud"><div class="panel" id="stats"></div><div class="panel" id="inv"></div></div>
+<div id="msg"></div>
+<div id="joy"><div id="stick"></div></div>
+<div id="actions">
+<button id="actGather">Собрать</button><button id="actWater">Вода</button>
+<button id="actFire">Огонь</button><button id="actCraft">Крафт</button>
+<button id="actEat">Есть</button><button id="actSleep">Сон</button>
+</div><div id="help">Двигайся джойстиком · подходи к объектам · действия справа</div>
+<script>
+(()=>{"use strict";
+const c=document.getElementById('world'),ctx=c.getContext('2d'),stats=document.getElementById('stats'),inv=document.getElementById('inv'),msg=document.getElementById('msg');
+const joy=document.getElementById('joy'),stick=document.getElementById('stick');
+let W=0,H=0,dpr=1;
+function resize(){dpr=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)} addEventListener('resize',resize,{passive:true});resize();
+
+const TAU=Math.PI*2, SAVE='bth-playable-0.3';
+const S={x:0,y:0,hp:100,hunger:88,thirst:88,energy:100,temp:37,wood:0,stone:0,berry:0,water:0,cooked:0,fire:0,axe:0,knife:0,shelter:0,time:7*60,day:1};
+const world={trees:[],rocks:[],berries:[],ponds:[],animals:[],tracks:[]};
+let seed=73129;
+function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function msgShow(t){msg.textContent=t;msg.style.opacity=1;clearTimeout(msgShow.t);msgShow.t=setTimeout(()=>msg.style.opacity=0,1800)}
+function makeWorld(){
+ for(let i=0;i<110;i++)world.trees.push({x:(rnd()-.5)*2400,y:(rnd()-.5)*1800,r:18+ rnd()*8,cut:false});
+ for(let i=0;i<90;i++)world.rocks.push({x:(rnd()-.5)*2400,y:(rnd()-.5)*1800,r:10+rnd()*8,taken:false});
+ for(let i=0;i<55;i++)world.berries.push({x:(rnd()-.5)*2200,y:(rnd()-.5)*1700,r:9,taken:false});
+ for(let i=0;i<4;i++)world.ponds.push({x:(rnd()-.5)*1500,y:(rnd()-.5)*1000,r:85+rnd()*45});
+ for(let i=0;i<14;i++)world.animals.push({x:(rnd()-.5)*2000,y:(rnd()-.5)*1500,ang:rnd()*TAU,v:18+rnd()*12,fear:0});
+ for(let i=0;i<35;i++)world.tracks.push({x:(rnd()-.5)*2200,y:(rnd()-.5)*1600});
+}
+makeWorld();
+
+function nearest(arr, predicate, max=85){let best=null,bd=max;for(const o of arr){if(predicate&&!predicate(o))continue;const d=dist(S,o);if(d<bd){bd=d;best=o}}return best}
+function nearPond(){return nearest(world.ponds,null,110)}
+function gather(){let t=nearest(world.trees,o=>!o.cut);if(t){t.cut=true;S.wood+=2;msgShow('Собрано дерево: +2 древесины');return}
+ let r=nearest(world.rocks,o=>!o.taken);if(r){r.taken=true;S.stone++;msgShow('Собран камень: +1');return}
+ let b=nearest(world.berries,o=>!o.taken);if(b){b.taken=true;S.berry+=3;msgShow('Собраны ягоды: +3');return}
+ msgShow('Рядом нечего собрать');
+}
+function water(){if(nearPond()){S.water=Math.min(4,S.water+2);msgShow('Набрана вода: +2 (неочищенная)')}else msgShow('Нужен водоём рядом')}
+function fire(){if(S.wood>=1){S.wood--;S.fire=Math.min(100,S.fire+35);msgShow('Огонь разожжён')}else msgShow('Нужна древесина')}
+function eat(){if(S.cooked>0){S.cooked--;S.hunger=Math.min(100,S.hunger+30);S.energy=Math.min(100,S.energy+8);msgShow('Съедена приготовленная пища');return}if(S.berry>0){S.berry--;S.hunger=Math.min(100,S.hunger+8);msgShow('Съедены ягоды')}else msgShow('Еды нет')}
+function craft(){if(S.axe===0&&S.wood>=3&&S.stone>=2){S.wood-=3;S.stone-=2;S.axe=1;msgShow('Создан топор — сбор древесины эффективнее');return}
+ if(S.knife===0&&S.stone>=2&&S.wood>=1){S.stone-=2;S.wood--;S.knife=1;msgShow('Создан нож');return}
+ if(S.shelter===0&&S.wood>=8){S.wood-=8;S.shelter=1;msgShow('Построено укрытие');return}
+ if(S.fire>0&&S.berry>0){S.berry--;S.cooked++;msgShow('Ягоды приготовлены');return}
+ msgShow('Недостаточно материалов для нового действия')}
+function sleep(){S.time=(S.time+480)%1440;S.day+=Math.floor((S.time+480)/1440);S.energy=Math.min(100,S.energy+55);S.hunger=Math.max(0,S.hunger-10);S.thirst=Math.max(0,S.thirst-12);msgShow('Сон завершён. Мир продолжил жить.'); save()}
+
+for(const [id,fn] of [['actGather',gather],['actWater',water],['actFire',fire],['actCraft',craft],['actEat',eat],['actSleep',sleep]])document.getElementById(id).addEventListener('click',e=>{e.preventDefault();fn()},{passive:false});
+
+let ix=0,iy=0,active=false,pid=null;
+function setInput(x,y){const n=Math.hypot(x,y)||1;ix=Math.max(-1,Math.min(1,x/n));iy=Math.max(-1,Math.min(1,y/n))}
+function stop(){ix=iy=0;active=false;stick.style.transform='translate(0,0)'}
+function joyPos(clientX,clientY){const q=joy.getBoundingClientRect(),cx=q.left+q.width/2,cy=q.top+q.height/2,m=q.width*.34;let x=clientX-cx,y=clientY-cy,n=Math.hypot(x,y)||1;if(n>m){x=x/n*m;y=y/n*m}stick.style.transform=`translate(${x}px,${y}px)`;setInput(x/m,y/m)}
+joy.addEventListener('pointerdown',e=>{e.preventDefault();active=true;pid=e.pointerId;joy.setPointerCapture?.(pid);joyPos(e.clientX,e.clientY)},{passive:false});
+joy.addEventListener('pointermove',e=>{if(active&&e.pointerId===pid){e.preventDefault();joyPos(e.clientX,e.clientY)}},{passive:false});
+['pointerup','pointercancel'].forEach(t=>joy.addEventListener(t,e=>{if(e.pointerId===pid)stop()},{passive:false}));
+addEventListener('keydown',e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(m){e.preventDefault();setInput(...m);active=true}},{passive:false});
+addEventListener('keyup',e=>{if(/Arrow|^[wasd]$/.test(e.key))stop()});
+
+function save(){localStorage.setItem(SAVE,JSON.stringify({S,world,seed}))}
+function load(){try{const d=JSON.parse(localStorage.getItem(SAVE)||'null');if(d&&d.S){Object.assign(S,d.S);if(d.world)Object.assign(world,d.world);if(d.seed)seed=d.seed;msgShow('Сохранение загружено')}}catch(e){msgShow('Сохранение повреждено — начата новая жизнь')}}
+load();
+
+let last=performance.now(),sim=0;
+function tick(dt){
+ S.time=(S.time+dt/6)%1440; S.hunger=Math.max(0,S.hunger-dt*.012);S.thirst=Math.max(0,S.thirst-dt*.018);S.energy=Math.max(0,S.energy-dt*(active?.018:.006));
+ if(S.fire>0)S.fire=Math.max(0,S.fire-dt*2.2);
+ if(S.thirst<=0||S.hunger<=0)S.hp=Math.max(0,S.hp-dt*1.2); else S.hp=Math.min(100,S.hp+dt*.01);
+ for(const a of world.animals){a.fear=Math.max(0,a.fear-dt);const d=dist(S,a);if(d<170){a.fear=1.5; a.ang=Math.atan2(a.y-S.y,a.x-S.x)}else if(rnd()<dt*.15)a.ang+=(rnd()-.5)*1.5;a.x+=Math.cos(a.ang)*a.v*dt*(a.fear?1.8:.45);a.y+=Math.sin(a.ang)*a.v*dt*(a.fear?1.8:.45)}
+ S.x+=ix*(active?125:0)*dt;S.y+=iy*(active?125:0)*dt;
+ sim+=dt;if(sim>8){sim=0;save()}
+}
+function render(){
+ ctx.clearRect(0,0,W,H);
+ const zoom=1,ox=W/2-S.x,oy=H/2-S.y;
+ ctx.fillStyle='#263c2b';ctx.fillRect(0,0,W,H);
+ // subtle terrain grid
+ ctx.globalAlpha=.12;ctx.strokeStyle='#dce8d533';for(let x=((ox%80)+80)%80;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=((oy%80)+80)%80;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}ctx.globalAlpha=1;
+ for(const p of world.ponds){ctx.fillStyle='#315e69';ctx.beginPath();ctx.ellipse(p.x+ox,p.y+oy,p.r,p.r*.72,0,0,TAU);ctx.fill();ctx.strokeStyle='#7ba9a4';ctx.stroke()}
+ for(const t of world.trees)if(!t.cut){ctx.fillStyle='#183522';ctx.beginPath();ctx.arc(t.x+ox,t.y+oy,t.r,0,TAU);ctx.fill();ctx.fillStyle='#5d4930';ctx.fillRect(t.x+ox-3,t.y+oy+8,6,14)}
+ for(const r of world.rocks)if(!r.taken){ctx.fillStyle='#77776e';ctx.beginPath();ctx.arc(r.x+ox,r.y+oy,r.r,0,TAU);ctx.fill()}
+ for(const b of world.berries)if(!b.taken){ctx.fillStyle='#6d5b36';ctx.beginPath();ctx.arc(b.x+ox,b.y+oy,b.r,0,TAU);ctx.fill();ctx.fillStyle='#b85b61';ctx.beginPath();ctx.arc(b.x+ox+3,b.y+oy-2,3,0,TAU);ctx.fill()}
+ for(const a of world.animals){ctx.fillStyle='#bda27a';ctx.beginPath();ctx.ellipse(a.x+ox,a.y+oy,12,7,a.ang,0,TAU);ctx.fill()}
+ for(const tr of world.tracks){ctx.fillStyle='#ffffff18';ctx.beginPath();ctx.arc(tr.x+ox,tr.y+oy,3,0,TAU);ctx.fill()}
+ if(S.fire>0){ctx.fillStyle='#e18b3d';ctx.beginPath();ctx.arc(ox+S.x,oy+S.y+25,14,0,TAU);ctx.fill()}
+ ctx.fillStyle='#e6e0cf';ctx.beginPath();ctx.arc(W/2,H/2,13,0,TAU);ctx.fill();ctx.strokeStyle='#17251c';ctx.stroke();
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(W/2,H/2-3,4,0,TAU);ctx.fill();
+ stats.innerHTML=`День ${Math.max(1,Math.floor(S.day))} · ${String(Math.floor(S.time/60)).padStart(2,'0')}:${String(Math.floor(S.time%60)).padStart(2,'0')}<br>HP ${S.hp.toFixed(0)} · Жажда ${S.thirst.toFixed(0)} · Голод ${S.hunger.toFixed(0)} · Энергия ${S.energy.toFixed(0)}`;
+ inv.innerHTML=`Дерево ${S.wood} · Камень ${S.stone}<br>Ягоды ${S.berry} · Вода ${S.water} · Еда ${S.cooked}<br>${S.axe?'Топор ':' '}${S.knife?'Нож ':''}${S.shelter?'Укрытие':''}`;
+}
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;tick(dt);render();requestAnimationFrame(loop)} requestAnimationFrame(loop);
+window.addEventListener('error',e=>msgShow('Ошибка: '+e.message));window.addEventListener('unhandledrejection',e=>msgShow('Ошибка: '+e.reason));
+})();
+</script></body></html>
