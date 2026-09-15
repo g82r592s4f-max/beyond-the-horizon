@@ -1,15 +1,29 @@
-# BEYOND THE HORIZON — iPhone Prototype 10.0
+# BEYOND THE HORIZON — iPhone Prototype 11.0
 
-9.0 Planetary Systems + 10.0 Living Planet / Civilization.
+## SOUL & HOME / EXPERIENCE LAYER
 
-New persistent systems:
-- deterministic planetary regions, climate, biomes, hydrology and basins;
-- seasonal ecological changes, vegetation and wildlife pressure;
-- persistent environmental impact and regional history;
-- NPC population, settlements, needs, knowledge, technology and stability;
-- infrastructure projects, materials, routes and settlement consequences;
-- backward-compatible migration from 8.0;
-- iPhone touch UI remains single-file and dependency-free.
+BTH 11.0 keeps the original production trajectory intact:
+**survival → knowledge → technology → civilization → planetary systems → space → signals → first contact → unknown**.
 
-Run `bth-game.html` locally or deploy it to GitHub Pages.
-No Unity/Xcode build is claimed by this prototype.
+This release adds the human emotional layer requested for the project, without replacing the simulation:
+- persistent personal home location;
+- place attachment and return memory;
+- contextual comfort/quiet moments rather than an abstract happiness bar;
+- personal journal and archive;
+- world-memory and personal-memory coexistence;
+- emerging story threads linked to the original progression (home, exploration, people, signal);
+- legacy counters that survive through the save;
+- no mandatory quests, FOMO, daily rewards, or artificial retention mechanics;
+- backward-compatible local save migration from earlier versions;
+- single-file, dependency-free iPhone web prototype.
+
+The emotional layer is deliberately non-linear: the player may stay at home, explore, build civilization, or continue toward space and first contact.
+
+## Verification
+- JavaScript syntax check: PASS
+- Required 11.0 systems present: PASS
+- Save/load migration path retained: PASS
+- No external runtime dependencies: PASS
+- iPhone touch controls remain based on the existing pointer/touch implementation.
+
+This is a web prototype. No Unity/Xcode build or physical iPhone execution is claimed by this release.

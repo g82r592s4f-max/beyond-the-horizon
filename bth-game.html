@@ -2,8 +2,8 @@
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="bth-build" content="10.0-planetary-civilization-core">
-<title>BTH 10.0 — BEYOND THE HORIZON · PLANETARY CORE</title>
+<meta name="bth-build" content="11.0-soul-home-experience">
+<title>BTH 11.0 — BEYOND THE HORIZON · SOUL & HOME</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
@@ -910,6 +910,131 @@ function bth13HUD(){
   toast('Кандидат: '+a.type+' · подтверждение не установлено');hud();
  };
  hud();setInterval(hud,1000);
+})();
+</script>
+
+<!-- =========================================================
+     BTH 11.0 — SOUL & HOME / EXPERIENCE LAYER
+     This layer does not replace the original survival → knowledge →
+     civilization → space → contact trajectory. It gives that trajectory
+     a human emotional center: home, belonging, memory, quiet, relationships,
+     personal archive and legacy. No FOMO, no forced quests.
+     ========================================================= -->
+<div id="bth11panel" style="position:fixed;left:8px;bottom:92px;z-index:40;padding:9px 10px;background:rgba(4,10,8,.78);color:#fff;font:12px system-ui;border-radius:11px;pointer-events:auto;max-width:285px;border:1px solid rgba(255,255,255,.15)">
+ <b>SOUL & HOME · 11.0</b><br>
+ <span id="bth11status">Мир помнит тебя.</span><br>
+ <button id="bth11home" type="button" style="margin-top:5px">Сделать домом это место</button>
+ <button id="bth11archive" type="button" style="margin-top:5px">Личный архив</button>
+ <button id="bth11quiet" type="button" style="margin-top:5px">Побыть здесь</button>
+</div>
+<script>
+(function(){
+ const KEY11='bth05-save';
+ const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+ function init(){
+   if(!S.experience)S.experience={home:null,places:[],journal:[],moments:[],relationships:{},legacy:{years:0,memories:0},wonder:0,quiet:0,storyThreads:[]};
+   const e=S.experience;
+   if(!Array.isArray(e.places))e.places=[];
+   if(!Array.isArray(e.journal))e.journal=[];
+   if(!Array.isArray(e.moments))e.moments=[];
+   if(!e.relationships||typeof e.relationships!=='object')e.relationships={};
+   if(!e.legacy)e.legacy={years:0,memories:0};
+   if(!Array.isArray(e.storyThreads))e.storyThreads=[];
+   if(!Number.isFinite(e.wonder))e.wonder=0;
+   if(!Number.isFinite(e.quiet))e.quiet=0;
+   if(!Array.isArray(S.relationships))S.relationships=[];
+   migrateStory();
+ }
+ function migrateStory(){
+   const e=S.experience;
+   const add=(id,title,kind)=>{if(!e.storyThreads.some(x=>x.id===id))e.storyThreads.push({id,title,kind,status:'emerging',firstSeenDay:S.day||1,lastSeenDay:S.day||1});};
+   if(S.tools?.shelter)add('home','Место, которое стало домом','personal');
+   if((S.discoveries||[]).length>0 || (S.known||[]).length>0)add('wonder','Мир отвечает тому, кто наблюдает','exploration');
+   if((S.planetCivilization?.settlements||[]).length>0)add('people','Люди строят свою историю','civilization');
+   if((S.signals||[]).length>0)add('signal','Сигнал издалека','contact');
+ }
+ function distanceToHome(){return S.experience.home?Math.hypot(S.x-S.experience.home.x,S.y-S.experience.home.y):Infinity}
+ function comfort(){
+   const e=S.experience,h=S.experience.home;
+   if(!h)return 0;
+   let v=0;
+   const d=distanceToHome();
+   if(d<55)v+=.35;else if(d<140)v+=.15;
+   if(S.tools?.shelter && d<70)v+=.25;
+   if(S.tools?.fire && d<110)v+=.2;
+   const nearbyAnimal=(S.animals||[]).some(a=>Math.hypot(a.x-S.x,a.y-S.y)<95);
+   if(nearbyAnimal)v+=.08;
+   if(S.weather?.type==='ясно')v+=.06;
+   if(S.weather?.type==='дождь'&&S.tools?.shelter&&d<70)v+=.08;
+   return clamp(v);
+ }
+ function establishHome(){
+   const e=S.experience;
+   e.home={x:S.x,y:S.y,day:S.day||1,weather:S.weather?.type||'ясно',name:'Дом'};
+   e.places.push({id:'HOME-'+e.places.length,x:S.x,y:S.y,day:S.day||1,type:'home',name:'Дом',visits:1});
+   e.journal.push({day:S.day||1,type:'home_established',text:'Здесь я решил остаться хотя бы на некоторое время.'});
+   e.legacy.memories++;
+   remember('Личная история: это место стало домом.');
+   toast('Место стало домом');
+ }
+ function quiet(){
+   const c=comfort();
+   const e=S.experience;
+   e.quiet=Math.min(1,e.quiet+.08+c*.12);
+   e.moments.push({day:S.day||1,minute:S.minutes||0,x:S.x,y:S.y,comfort:+c.toFixed(3),weather:S.weather?.type||'ясно'});
+   if(e.moments.length>120)e.moments.shift();
+   e.legacy.memories++;
+   remember(c>.5?'Личная память: тихий момент дома.':'Личная память: остановка и наблюдение за миром.');
+   toast(c>.5?'Здесь спокойно.':'Ты остановился и слушаешь мир.');
+ }
+ function archive(){
+   const e=S.experience;
+   const discoveries=(S.discoveries||[]).length+(S.universe?.discoveries||[]).length;
+   const signals=(S.signals||[]).filter(x=>x.status==='received').length;
+   const settlements=(S.planetCivilization?.settlements||[]).length;
+   const rows=[
+    ['Дом',e.home?('день '+e.home.day+' · '+Math.round(distanceToHome())+' м от тебя'):'ещё не выбран'],
+    ['Память',String((S.memory||[]).length)+' записей'],
+    ['Открытия',String(discoveries)],
+    ['Сигналы',String(signals)],
+    ['Поселения',String(settlements)],
+    ['Тихие моменты',String(e.moments.length)],
+    ['Личная история',String(e.journal.length)+' записей'],
+    ['Ветви истории',String(e.storyThreads.length)]
+   ];
+   openSheet('Личный архив',rows.map(r=>`<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')+
+    '<h3>Последние личные записи</h3>'+(e.journal.slice(-8).reverse().map(x=>`<div class="row"><span>День ${x.day}</span><span>${x.text}</span></div>`).join('')||'<div class="small">Архив только начинается.</div>')+
+    '<h3>История мира</h3>'+(((S.memory||[]).slice(-8).reverse().map(x=>`<div class="row"><span>День ${x.day}</span><span>${x.text}</span></div>`).join(''))||'<div class="small">Память пока пуста.</div>'));
+ }
+ function daily(){
+   init();
+   const e=S.experience;
+   const c=comfort();
+   if(c>.25)e.wonder=Math.min(1,e.wonder+.0008);
+   e.legacy.years=(S.day||1)/365;
+   migrateStory();
+   for(const t of e.storyThreads)t.lastSeenDay=S.day||1;
+   if((S.day||1)%7===0 && e.home && distanceToHome()<80){
+     e.journal.push({day:S.day||1,type:'return',text:'Возвращение домой: мир изменился, но место меня помнит.'});
+     if(e.journal.length>160)e.journal.shift();
+   }
+ }
+ function status(){init();const e=S.experience;return {home:!!e.home,comfort:Math.round(comfort()*100),quiet:Math.round(e.quiet*100),memories:e.legacy.memories,threads:e.storyThreads.length};}
+ init();
+ window.BTH110={init,daily,status,establishHome,quiet,archive,comfort};
+ const oldUpdate11=window.update;
+ window.update=function(dt){oldUpdate11(dt);};
+ const oldSave11=window.save;
+ window.save=function(){S.version='11.0';localStorage.setItem(KEY11,JSON.stringify(S));toast('Сохранено · версия 11.0 · история мира сохранена');};
+ const saveBtn=document.getElementById('save');if(saveBtn)saveBtn.onclick=window.save;
+ document.getElementById('bth11home').onclick=establishHome;
+ document.getElementById('bth11archive').onclick=archive;
+ document.getElementById('bth11quiet').onclick=quiet;
+ function hud(){const e=document.getElementById('bth11status');if(!e)return;const s=status();e.textContent=(s.home?'Дом · ':'Дом ещё не выбран · ')+'Уют '+s.comfort+'% · Память '+s.memories+' · Тихие моменты '+s.quiet+'%';}
+ hud();setInterval(hud,1000);
+ // Bridge into the existing day-based simulation without changing its cadence.
+ const oldLoopDaily=BTH100.daily.bind(BTH100);
+ BTH100.daily=function(){oldLoopDaily();BTH110.daily();};
 })();
 </script>
 </body></html><style>
