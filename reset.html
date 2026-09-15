@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BTH cache reset</title>
+<style>body{font-family:-apple-system,sans-serif;background:#0b1214;color:#eef4f7;padding:30px}button{font:inherit;padding:15px;border-radius:12px}</style>
+<h1>BEYOND THE HORIZON</h1><p id="s">Сбрасываем старый Service Worker и кэш…</p>
+<script>
+(async()=>{
+try{
+ const regs=await navigator.serviceWorker.getRegistrations();
+ for(const r of regs) await r.unregister();
+ if(window.caches){for(const k of await caches.keys()) await caches.delete(k);}
+ document.getElementById('s').textContent='Готово. Старый кэш удалён. Теперь откройте /beyond-the-horizon/';
+}catch(e){document.getElementById('s').textContent='Ошибка: '+e.message}
+})();
+</script>
