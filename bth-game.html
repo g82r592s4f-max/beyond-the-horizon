@@ -122,12 +122,31 @@ function environmentalStep(dt){
  if(S.weather.type==='ветер') S.energy=Math.max(0,S.energy-dt*.012);
 }
 
+function vitalConsequences(step){
+      if(thirst<=0 || hunger<=0){
+        hp=Math.max(0,hp-step*0.015);
+      }
+      if(energy<=0){
+        hp=Math.max(0,hp-step*0.006);
+      }
+      if(temp<34 || temp>39){
+        hp=Math.max(0,hp-step*0.01);
+      }
+      if(hp<=0){
+        hp=35; hunger=Math.max(hunger,20); thirst=Math.max(thirst,20);
+        energy=Math.max(energy,20);
+        memory.unshift({day:day,text:"Потеря сознания: организм достиг критического состояния."});
+        memory=memory.slice(0,40);
+      }
+    }
+
 function update(dt){
  let kx=(keys['d']?1:0)-(keys['a']?1:0),ky=(keys['s']?1:0)-(keys['w']?1:0);
  let ix=Math.abs(input.x)+Math.abs(input.y)?input.x:kx,iy=Math.abs(input.x)+Math.abs(input.y)?input.y:ky;
  let mag=Math.hypot(ix,iy)||1,speed=2.4*(S.energy>5?1:.45);S.x+=ix/mag*speed*dt*60;S.y+=iy/mag*speed*dt*60;
  S.minutes=(S.minutes+dt*0.7)%1440;sim+=dt;
- if(sim>10){sim=0;weatherStep();environmentalStep(10);S.food=Math.max(0,S.food-dt*.08);S.water=Math.max(0,S.water-dt*.12);S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*dt*1.3);
+ if(sim>=10){const step=sim;sim=0;weatherStep();environmentalStep(step);S.food=Math.max(0,S.food-step*.08);S.water=Math.max(0,S.water-step*.12);S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*step*1.3);
+if(S.food<=0||S.water<=0||S.energy<=0||S.temp<34||S.temp>39)S.hp=Math.max(0,S.hp-step*.01);
    if(S.food<15||S.water<15)S.hp=Math.max(0,S.hp-dt*.4);
    for(let a of S.animals){let d=dist(S,a);if(d<170)a.fear=Math.min(10,a.fear+dt);else a.fear=Math.max(0,a.fear-dt*.15);
     let ang=a.fear>0?Math.atan2(a.y-S.y,a.x-S.x):Math.atan2(a.dy,a.dx);a.dx=Math.cos(ang);a.dy=Math.sin(ang);a.x+=a.dx*dt*18;a.y+=a.dy*dt*18}
