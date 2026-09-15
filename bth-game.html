@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="bth-build" content="1.0-final-checked">
-<title>BEYOND THE HORIZON · PLAYABLE 1.0</title>
+<title>BTH 7.0 — BEYOND THE HORIZON · PLAYABLE 1.0</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
@@ -400,6 +400,182 @@ const BTH30={
 };
 BTH30.init();
 
+
+/* =========================================================
+   BEYOND THE HORIZON 7.0 — OPEN UNIVERSE
+   Deterministic, persistent, evidence-based discovery layer.
+   ========================================================= */
+const BTH70={
+ VERSION:'7.0',
+ init(){
+  S.version='7.0';
+  if(!S.universe)S.universe={
+   seed:(S.worldSeed||Math.floor(Math.random()*2147483647)),
+   epoch:0,
+   objects:[],
+   signals:[],
+   contacts:[],
+   probes:[],
+   maps:[],
+   discoveries:[]
+  };
+  if(!S.civilization)S.civilization={
+   stage:'survival',
+   population:0,
+   technology:0,
+   science:0,
+   industry:0,
+   space:0,
+   knowledge:0,
+   stability:1
+  };
+  if(!S.signals)S.signals=[];
+  if(!S.probes)S.probes=[];
+  if(!S.contacts)S.contacts=[];
+  if(!S.timeline)S.timeline=[];
+  this.migrate();
+ },
+ migrate(){
+  const u=S.universe;
+  if(!Number.isFinite(u.seed))u.seed=S.worldSeed||1;
+  if(!Array.isArray(u.objects))u.objects=[];
+  if(!Array.isArray(u.signals))u.signals=[];
+  if(!Array.isArray(u.contacts))u.contacts=[];
+  if(!Array.isArray(u.probes))u.probes=[];
+  if(!Array.isArray(u.maps))u.maps=[];
+  if(!Array.isArray(S.signals))S.signals=[];
+  if(!Array.isArray(S.probes))S.probes=[];
+  if(!Array.isArray(S.contacts))S.contacts=[];
+  if(!Array.isArray(S.timeline))S.timeline=[];
+ },
+ hash(n){
+  let x=(Math.abs(Math.floor(n))||1)>>>0;
+  x^=x<<13;x^=x>>>17;x^=x<<5;
+  return (x>>>0);
+ },
+ rand(seed){
+  let x=this.hash(seed);
+  return (x%1000000)/1000000;
+ },
+ body(id){
+  const seed=this.hash(S.universe.seed+id*7919);
+  const r=this.rand(seed);
+  const temp=-80+r*180;
+  const gravity=.15+r*2.2;
+  const water=r>.35;
+  const atmosphere=r>.22;
+  const life=r>.78;
+  return {
+   id:'BTH-'+id,
+   kind:'planet',
+   distance:1+r*40,
+   gravity:+gravity.toFixed(3),
+   temperature:+temp.toFixed(1),
+   atmosphere,
+   water,
+   life,
+   state:'detected',
+   confidence:'model',
+   observed:0
+  };
+ },
+ ensureCatalog(count=12){
+  const u=S.universe;
+  while(u.objects.length<count)u.objects.push(this.body(u.objects.length+1));
+ },
+ observe(id){
+  const o=S.universe.objects.find(x=>x.id===id);
+  if(!o)return null;
+  o.observed++;
+  if(o.observed===1)o.state='observed';
+  if(o.observed>=3)o.state='mapped';
+  o.confidence=o.observed>=3?'measured':'observed';
+  if(!S.universe.discoveries.some(d=>d.id===o.id)){
+   S.universe.discoveries.push({id:o.id,day:S.day||1,state:o.state});
+   S.timeline.push({day:S.day||1,type:'discovery',id:o.id});
+  }
+  return o;
+ },
+ createSignal(source,type,delay){
+  const sig={
+   id:'SIG-'+(S.signals.length+1),
+   source, type:type||'unknown',
+   sentDay:S.day||1,
+   arrivalDay:(S.day||1)+Math.max(1,Math.floor(delay||1)),
+   status:'in_transit',
+   evidence:0
+  };
+  S.signals.push(sig);S.universe.signals.push(sig.id);
+  return sig;
+ },
+ tickSignals(){
+  for(const s of S.signals){
+   if(s.status==='in_transit'&&(S.day||1)>=s.arrivalDay){
+    s.status='received';s.evidence++;
+    S.timeline.push({day:S.day||1,type:'signal_received',id:s.id});
+   }
+  }
+ },
+ sendProbe(target){
+  const o=S.universe.objects.find(x=>x.id===target);
+  if(!o)return false;
+  const probe={
+   id:'PRB-'+(S.probes.length+1),
+   target,
+   sentDay:S.day||1,
+   arrivalDay:(S.day||1)+Math.max(2,Math.ceil(o.distance/2)),
+   status:'in_flight',
+   data:0
+  };
+  S.probes.push(probe);S.universe.probes.push(probe.id);
+  S.civilization.space=Math.max(S.civilization.space,0.01);
+  S.timeline.push({day:S.day||1,type:'probe_launch',id:probe.id,target});
+  return true;
+ },
+ tickProbes(){
+  for(const p of S.probes){
+   if(p.status==='in_flight'&&(S.day||1)>=p.arrivalDay){
+    p.status='arrived';p.data=1;
+    const o=S.universe.objects.find(x=>x.id===p.target);
+    if(o){o.observed+=2;o.state='visited_by_probe';o.confidence='measured';}
+    S.timeline.push({day:S.day||1,type:'probe_arrival',id:p.id,target:p.target});
+   }
+  }
+ },
+ civilizationTick(){
+  const c=S.civilization;
+  const pop=S.npc?.population||0;
+  c.population=pop;
+  c.knowledge=Math.max(c.knowledge,S.discoveries?.length||0);
+  c.technology=Math.min(1,c.technology+(c.knowledge>3?.0002:0));
+  c.science=Math.min(1,c.science+(c.knowledge>6?.0003:0));
+  c.industry=Math.min(1,c.industry+(c.technology>.2?.00015:0));
+  if(c.industry>.55)c.stage='industrial';
+  if(c.science>.7)c.stage='scientific';
+  if(c.space>.5)c.stage='spacefaring';
+ },
+ daily(){
+  this.ensureCatalog();
+  this.tickSignals();
+  this.tickProbes();
+  this.civilizationTick();
+ },
+ status(){
+  this.ensureCatalog();
+  return {
+   version:this.VERSION,
+   stage:S.civilization.stage,
+   bodies:S.universe.objects.length,
+   discovered:S.universe.discoveries.length,
+   signals:S.signals.filter(x=>x.status==='received').length,
+   probes:S.probes.filter(x=>x.status==='arrived').length,
+   contacts:S.contacts.length
+  };
+ }
+};
+BTH70.init();
+BTH70.ensureCatalog();
+
 function makeWorld(){
  S.world=[];S.animals=[];
  const types=['tree','tree','tree','rock','berry','berry','pond','ruin'];
@@ -532,6 +708,7 @@ function update(dt){
    S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*step*1.3);
    vitalConsequences(step);
    BTH30.advance(step/3600);
+   BTH70.daily();
    BTH30.routeTo(S.x,S.y);
    BTH12.climate(step); BTH12.decay(step);
    ecologyStep(step);
@@ -588,4 +765,35 @@ function bth13HUD(){
 
 
 </script><button data-act="observe" onclick="bth11FieldObservation()">Исследовать</button><div id="bth13eco" style="position:fixed;left:10px;bottom:8px;padding:6px 9px;background:rgba(0,0,0,.45);color:#fff;font:12px system-ui;border-radius:8px;pointer-events:none">Жизнь мира</div><script>setInterval(bth13HUD,1000);</script><div id="bth30panel" style="position:fixed;right:8px;top:8px;z-index:20;padding:7px 9px;background:rgba(0,0,0,.48);color:#fff;font:11px system-ui;border-radius:8px;pointer-events:none">BTH 3.0</div>
-<script>function bth30HUD(){const e=document.getElementById('bth30panel');if(!e)return;const s=BTH30.status();e.textContent='BTH 3.0 · День '+s.day+' · Животные '+s.animals+' · Растения '+s.plants+' · Открытия '+s.discoveries;}setInterval(bth30HUD,1000);bth30HUD();</script></body></html>
+<script>function bth30HUD(){const e=document.getElementById('bth30panel');if(!e)return;const s=BTH30.status();e.textContent='BTH 3.0 · День '+s.day+' · Животные '+s.animals+' · Растения '+s.plants+' · Открытия '+s.discoveries;}setInterval(bth30HUD,1000);bth30HUD();</script>
+<div id="bth70panel" style="position:fixed;left:8px;top:8px;z-index:30;padding:8px 10px;background:rgba(0,0,0,.58);color:#fff;font:12px system-ui;border-radius:9px;pointer-events:auto;max-width:235px">
+ <b>BEYOND THE HORIZON 7.0</b><br>
+ <span id="bth70status">Вселенная инициализируется…</span><br>
+ <button id="bth70scan" type="button" style="margin-top:5px">Сканировать космос</button>
+ <button id="bth70signal" type="button" style="margin-top:5px">Проверить сигналы</button>
+</div>
+<script>
+(function(){
+ const scan=document.getElementById('bth70scan');
+ const sig=document.getElementById('bth70signal');
+ if(scan)scan.onclick=function(){
+  BTH70.ensureCatalog();
+  const o=BTH70.observe(BTH70.status().bodies?S.universe.objects[0].id:null);
+  if(o&&typeof toast==='function')toast('Объект '+o.id+': '+o.state+' · данные '+o.confidence);
+  bth70HUD();
+ };
+ if(sig)sig.onclick=function(){
+  BTH70.tickSignals();
+  const n=S.signals.filter(x=>x.status==='received').length;
+  if(typeof toast==='function')toast('Получено сигналов: '+n);
+  bth70HUD();
+ };
+ window.bth70HUD=function(){
+  const e=document.getElementById('bth70status');if(!e)return;
+  const s=BTH70.status();
+  e.textContent='Стадия: '+s.stage+' · Объекты '+s.bodies+' · Изучено '+s.discovered+' · Сигналы '+s.signals+' · Зонды '+s.probes+' · Контакты '+s.contacts;
+ };
+ bth70HUD();setInterval(bth70HUD,1000);
+})();
+</script>
+</body></html>
