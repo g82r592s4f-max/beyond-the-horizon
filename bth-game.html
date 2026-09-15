@@ -1,115 +1,120 @@
 <!doctype html>
-<html lang="ru"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes"><title>BEYOND THE HORIZON · PLAYABLE 0.4 · GAME</title>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>BEYOND THE HORIZON · PLAYABLE 0.5</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
-#version{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;color:#fff8;font-size:18px;font-weight:800;pointer-events:none;opacity:.0}#hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;z-index:5;display:flex;justify-content:space-between;pointer-events:none}
-.panel{background:#07100bcc;border:1px solid #ffffff22;border-radius:14px;padding:9px 11px;color:#eee;font-size:12px;line-height:1.35;backdrop-filter:blur(6px)}
-#msg{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:7;background:#07100bdd;border:1px solid #ffffff33;border-radius:14px;padding:12px 16px;color:#fff;max-width:85%;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
-#actions{position:fixed;right:16px;bottom:22px;z-index:10;display:grid;grid-template-columns:repeat(2,74px);gap:9px}
-button{appearance:none;border:1px solid #ffffff44;background:#101a16dd;color:#fff;border-radius:16px;min-height:54px;font-size:12px;font-weight:600;touch-action:manipulation}
-button:active{transform:scale(.96);background:#26382e}
-#joy{position:fixed;left:20px;bottom:24px;width:156px;height:156px;border-radius:50%;background:#ffffff16;border:2px solid #ffffff45;z-index:10;touch-action:none}
-#stick{position:absolute;width:66px;height:66px;left:50%;top:50%;margin:-33px;border-radius:50%;background:#ffffff55;border:2px solid #ffffff77;transform:translate(0,0);pointer-events:none}
-#help{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:4;color:#ffffffaa;font-size:11px;pointer-events:none;white-space:nowrap}
-@media(max-width:520px){#help{display:none}}
+#top{position:fixed;left:10px;right:10px;top:10px;z-index:5;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:#07110dcc;border:1px solid #ffffff22;border-radius:14px;padding:9px 11px;backdrop-filter:blur(6px);font-size:12px;line-height:1.35}
+#actions{position:fixed;right:12px;bottom:22px;z-index:10;display:grid;grid-template-columns:repeat(2,78px);gap:8px}
+button{border:1px solid #ffffff30;border-radius:14px;background:#0b1712dd;color:#f3f5ed;font-weight:700;min-height:52px;font-size:13px;touch-action:manipulation;-webkit-user-select:none}
+button:active{transform:scale(.96);background:#233d2c}
+#joy{position:fixed;left:20px;bottom:22px;width:150px;height:150px;border-radius:50%;z-index:10;background:#ffffff12;border:2px solid #ffffff35;touch-action:none}
+#knob{position:absolute;width:64px;height:64px;left:50%;top:50%;margin:-32px;border-radius:50%;background:#ffffff50;border:2px solid #ffffff55;pointer-events:none}
+#msg{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:8;background:#07110de8;border:1px solid #ffffff25;border-radius:12px;padding:8px 12px;opacity:0;transition:.2s;pointer-events:none;white-space:nowrap}
+#sheet{position:fixed;inset:0;z-index:20;background:#07100df2;display:none;padding:18px;overflow:auto}
+#sheet.show{display:block}.sheetin{max-width:520px;margin:auto}.close{float:right;width:44px;min-height:44px}.row{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #ffffff18}.small{opacity:.72;font-size:12px}
+h2{margin:6px 0 14px}.bar{height:7px;background:#ffffff18;border-radius:9px;overflow:hidden}.fill{height:100%;background:#b7d39b}
 </style></head><body>
-<canvas id="world"></canvas>
-<div id="version">BTH GAME 0.4</div><div id="hud"><div class="panel" id="stats"></div><div class="panel" id="inv"></div></div>
+<canvas id="c"></canvas>
+<div id="top"><div class="panel"><b>BEYOND THE HORIZON</b><br>PLAYABLE 0.5 · день <span id="day">1</span> · <span id="clock">08:00</span></div>
+<div class="panel">HP <span id="hp">100</span> · Вода <span id="water">80</span> · Еда <span id="food">80</span> · Энергия <span id="energy">100</span></div></div>
 <div id="msg"></div>
-<div id="joy"><div id="stick"></div></div>
+<div id="joy"><div id="knob"></div></div>
 <div id="actions">
-<button id="actGather">Собрать</button><button id="actWater">Вода</button>
-<button id="actFire">Огонь</button><button id="actCraft">Крафт</button>
-<button id="actEat">Есть</button><button id="actSleep">Сон</button>
-</div><div id="help">Двигайся джойстиком · подходи к объектам · действия справа</div>
+<button id="act">Собрать</button><button id="eat">Есть</button>
+<button id="drink">Пить</button><button id="fire">Огонь</button>
+<button id="craft">Крафт</button><button id="sleep">Сон</button>
+<button id="inv">Инвентарь</button><button id="save">Сохранить</button>
+</div>
+<div id="sheet"><div class="sheetin"><button class="close" id="close">×</button><h2 id="sheetTitle">Инвентарь</h2><div id="sheetBody"></div></div></div>
 <script>
-(()=>{"use strict";
-const c=document.getElementById('world'),ctx=c.getContext('2d'),stats=document.getElementById('stats'),inv=document.getElementById('inv'),msg=document.getElementById('msg');
-const joy=document.getElementById('joy'),stick=document.getElementById('stick');
-let W=0,H=0,dpr=1;
-function resize(){dpr=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)} addEventListener('resize',resize,{passive:true});resize();
+'use strict';
+const C=document.getElementById('c'),ctx=C.getContext('2d',{alpha:false});let W=innerWidth,H=innerHeight,D=devicePixelRatio||1;
+function resize(){W=innerWidth;H=innerHeight;C.width=W*D;C.height=H*D;C.style.width=W+'px';C.style.height=H+'px';ctx.setTransform(D,0,0,D,0,0)}addEventListener('resize',resize);resize();
 
-const TAU=Math.PI*2, SAVE='bth-playable-0.3';
-const S={x:0,y:0,hp:100,hunger:88,thirst:88,energy:100,temp:37,wood:0,stone:0,berry:0,water:0,cooked:0,fire:0,axe:0,knife:0,shelter:0,time:7*60,day:1};
-const world={trees:[],rocks:[],berries:[],ponds:[],animals:[],tracks:[]};
-let seed=73129;
-function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
-function msgShow(t){msg.textContent=t;msg.style.opacity=1;clearTimeout(msgShow.t);msgShow.t=setTimeout(()=>msg.style.opacity=0,1800)}
+const KEY='bth05-save';
+const rnd=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+let S={x:0,y:0,day:1,minutes:480,hp:100,water:80,food:80,energy:100,temp:37,
+inv:{wood:0,stone:0,berry:0,rawmeat:0,cooked:0,water:0,fuel:0},
+tools:{knife:false,axe:false,shelter:false,fire:false},known:[],world:[],animals:[]};
+
 function makeWorld(){
- for(let i=0;i<110;i++)world.trees.push({x:(rnd()-.5)*2400,y:(rnd()-.5)*1800,r:18+ rnd()*8,cut:false});
- for(let i=0;i<90;i++)world.rocks.push({x:(rnd()-.5)*2400,y:(rnd()-.5)*1800,r:10+rnd()*8,taken:false});
- for(let i=0;i<55;i++)world.berries.push({x:(rnd()-.5)*2200,y:(rnd()-.5)*1700,r:9,taken:false});
- for(let i=0;i<4;i++)world.ponds.push({x:(rnd()-.5)*1500,y:(rnd()-.5)*1000,r:85+rnd()*45});
- for(let i=0;i<14;i++)world.animals.push({x:(rnd()-.5)*2000,y:(rnd()-.5)*1500,ang:rnd()*TAU,v:18+rnd()*12,fear:0});
- for(let i=0;i<35;i++)world.tracks.push({x:(rnd()-.5)*2200,y:(rnd()-.5)*1600});
+ S.world=[];S.animals=[];
+ const types=['tree','tree','tree','rock','berry','berry','pond','ruin'];
+ for(let i=0;i<130;i++){let a=rnd(0,Math.PI*2),r=Math.sqrt(Math.random())*1800;
+  let type=types[Math.floor(Math.random()*types.length)];
+  S.world.push({x:Math.cos(a)*r,y:Math.sin(a)*r,type,amount:type==='tree'?rnd(2,6):type==='rock'?rnd(1,4):type==='berry'?rnd(1,3):1,respawn:rnd(0,1)});
+ }
+ for(let i=0;i<22;i++){let a=rnd(0,Math.PI*2),r=rnd(180,1700);S.animals.push({x:Math.cos(a)*r,y:Math.sin(a)*r,dx:rnd(-1,1),dy:rnd(-1,1),fear:0,kind:Math.random()<.65?'deer':'wolf'});}
 }
-makeWorld();
+function save(){localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено')}
+function load(){try{let v=JSON.parse(localStorage.getItem(KEY));if(v){S=v;toast('Сохранение загружено');return}}catch(e){}makeWorld()}
+load(); if(!S.world?.length)makeWorld();
 
-function nearest(arr, predicate, max=85){let best=null,bd=max;for(const o of arr){if(predicate&&!predicate(o))continue;const d=dist(S,o);if(d<bd){bd=d;best=o}}return best}
-function nearPond(){return nearest(world.ponds,null,110)}
-function gather(){let t=nearest(world.trees,o=>!o.cut);if(t){t.cut=true;S.wood+=2;msgShow('Собрано дерево: +2 древесины');return}
- let r=nearest(world.rocks,o=>!o.taken);if(r){r.taken=true;S.stone++;msgShow('Собран камень: +1');return}
- let b=nearest(world.berries,o=>!o.taken);if(b){b.taken=true;S.berry+=3;msgShow('Собраны ягоды: +3');return}
- msgShow('Рядом нечего собрать');
+const input={x:0,y:0};let joyId=null;
+const joy=document.getElementById('joy'),knob=document.getElementById('knob');
+function setJoy(e){let r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,m=Math.min(54,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);input.x=Math.cos(a)*(m/54);input.y=Math.sin(a)*(m/54);knob.style.transform=`translate(${input.x*54}px,${input.y*54}px)`}
+joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(e.pointerId);setJoy(e);e.preventDefault()});
+joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)setJoy(e);e.preventDefault()});
+function endJoy(e){if(e.pointerId===joyId){joyId=null;input.x=input.y=0;knob.style.transform='translate(0,0)'}}joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
+
+let keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=0});
+function toast(t){let m=document.getElementById('msg');m.textContent=t;m.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>m.style.opacity=0,1600)}
+function clock(){let h=Math.floor(S.minutes/60)%24,m=Math.floor(S.minutes%60);return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
+function nearby(type,max=72){let best=null,bd=max;for(let o of S.world)if(o.type===type){let d=dist(S,o);if(d<bd&&o.amount>0){best=o;bd=d}}return best}
+function collect(){
+ let types=[['tree','wood'],['rock','stone'],['berry','berry']];
+ for(let [t,k] of types){let o=nearby(t);if(o){let n=Math.max(1,Math.floor(o.amount));S.inv[k]+=n;o.amount=0;toast('Получено: '+k+' × '+n);return}}
+ let a=S.animals.find(a=>dist(S,a)<70);if(a&&a.kind==='deer'){S.inv.rawmeat++;toast('Получено: сырое мясо ×1');return}
+ toast('Рядом нечего собрать');
 }
-function water(){if(nearPond()){S.water=Math.min(4,S.water+2);msgShow('Набрана вода: +2 (неочищенная)')}else msgShow('Нужен водоём рядом')}
-function fire(){if(S.wood>=1){S.wood--;S.fire=Math.min(100,S.fire+35);msgShow('Огонь разожжён')}else msgShow('Нужна древесина')}
-function eat(){if(S.cooked>0){S.cooked--;S.hunger=Math.min(100,S.hunger+30);S.energy=Math.min(100,S.energy+8);msgShow('Съедена приготовленная пища');return}if(S.berry>0){S.berry--;S.hunger=Math.min(100,S.hunger+8);msgShow('Съедены ягоды')}else msgShow('Еды нет')}
-function craft(){if(S.axe===0&&S.wood>=3&&S.stone>=2){S.wood-=3;S.stone-=2;S.axe=1;msgShow('Создан топор — сбор древесины эффективнее');return}
- if(S.knife===0&&S.stone>=2&&S.wood>=1){S.stone-=2;S.wood--;S.knife=1;msgShow('Создан нож');return}
- if(S.shelter===0&&S.wood>=8){S.wood-=8;S.shelter=1;msgShow('Построено укрытие');return}
- if(S.fire>0&&S.berry>0){S.berry--;S.cooked++;msgShow('Ягоды приготовлены');return}
- msgShow('Недостаточно материалов для нового действия')}
-function sleep(){S.time=(S.time+480)%1440;S.day+=Math.floor((S.time+480)/1440);S.energy=Math.min(100,S.energy+55);S.hunger=Math.max(0,S.hunger-10);S.thirst=Math.max(0,S.thirst-12);msgShow('Сон завершён. Мир продолжил жить.'); save()}
-
-for(const [id,fn] of [['actGather',gather],['actWater',water],['actFire',fire],['actCraft',craft],['actEat',eat],['actSleep',sleep]])document.getElementById(id).addEventListener('click',e=>{e.preventDefault();fn()},{passive:false});
-
-let ix=0,iy=0,active=false,pid=null;
-function setInput(x,y){const n=Math.hypot(x,y)||1;ix=Math.max(-1,Math.min(1,x/n));iy=Math.max(-1,Math.min(1,y/n))}
-function stop(){ix=iy=0;active=false;stick.style.transform='translate(0,0)'}
-function joyPos(clientX,clientY){const q=joy.getBoundingClientRect(),cx=q.left+q.width/2,cy=q.top+q.height/2,m=q.width*.34;let x=clientX-cx,y=clientY-cy,n=Math.hypot(x,y)||1;if(n>m){x=x/n*m;y=y/n*m}stick.style.transform=`translate(${x}px,${y}px)`;setInput(x/m,y/m)}
-joy.addEventListener('pointerdown',e=>{e.preventDefault();active=true;pid=e.pointerId;joy.setPointerCapture?.(pid);joyPos(e.clientX,e.clientY)},{passive:false});
-joy.addEventListener('pointermove',e=>{if(active&&e.pointerId===pid){e.preventDefault();joyPos(e.clientX,e.clientY)}},{passive:false});
-['pointerup','pointercancel'].forEach(t=>joy.addEventListener(t,e=>{if(e.pointerId===pid)stop()},{passive:false}));
-addEventListener('keydown',e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(m){e.preventDefault();setInput(...m);active=true}},{passive:false});
-addEventListener('keyup',e=>{if(/Arrow|^[wasd]$/.test(e.key))stop()});
-
-function save(){localStorage.setItem(SAVE,JSON.stringify({S,world,seed}))}
-function load(){try{const d=JSON.parse(localStorage.getItem(SAVE)||'null');if(d&&d.S){Object.assign(S,d.S);if(d.world)Object.assign(world,d.world);if(d.seed)seed=d.seed;msgShow('Сохранение загружено')}}catch(e){msgShow('Сохранение повреждено — начата новая жизнь')}}
-load();
+function eat(){if(S.inv.cooked>0){S.inv.cooked--;S.food=Math.min(100,S.food+35);toast('Приготовленная еда восстановила силы')}else if(S.inv.berry>0){S.inv.berry--;S.food=Math.min(100,S.food+8);toast('Съедены ягоды')}else toast('Нет еды')}
+function drink(){let p=nearby('pond',100);if(p){S.water=Math.min(100,S.water+30);toast('Напился из водоёма')}else if(S.inv.water>0){S.inv.water--;S.water=Math.min(100,S.water+35);toast('Выпита вода')}else toast('Нет безопасной воды рядом')}
+function makeFire(){if(S.tools.fire){toast('Очаг уже есть');return}if(S.inv.wood>=3&&S.inv.stone>=2){S.inv.wood-=3;S.inv.stone-=2;S.tools.fire=true;toast('Создан очаг')}else toast('Нужно 3 дерева и 2 камня')}
+function craft(){
+ if(!S.tools.knife&&S.inv.stone>=2&&S.inv.wood>=1){S.inv.stone-=2;S.inv.wood--;S.tools.knife=true;toast('Создан нож');return}
+ if(!S.tools.axe&&S.tools.knife&&S.inv.stone>=2&&S.inv.wood>=2){S.inv.stone-=2;S.inv.wood-=2;S.tools.axe=true;toast('Создан топор');return}
+ if(!S.tools.shelter&&S.inv.wood>=8){S.inv.wood-=8;S.tools.shelter=true;toast('Построено укрытие');return}
+ if(S.inv.rawmeat>0&&S.tools.fire){S.inv.rawmeat--;S.inv.cooked++;toast('Мясо приготовлено');return}
+ toast('Пока нечего создавать');
+}
+function sleep(){let h=S.tools.shelter?8:4;S.minutes=(S.minutes+h*60)%1440;S.day++;S.energy=Math.min(100,S.energy+70);S.food=Math.max(0,S.food-10);S.water=Math.max(0,S.water-10);toast('Проснулся. Мир продолжал жить без тебя.')}
+function openSheet(title,body){document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;document.getElementById('sheet').classList.add('show')}
+function inv(){openSheet('Инвентарь',Object.entries(S.inv).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')+
+`<h3>Инструменты</h3>`+Object.entries(S.tools).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v?'есть':'нет'}</b></div>`).join(''))}
+document.getElementById('act').onclick=collect;document.getElementById('eat').onclick=eat;document.getElementById('drink').onclick=drink;document.getElementById('fire').onclick=makeFire;document.getElementById('craft').onclick=craft;document.getElementById('sleep').onclick=sleep;document.getElementById('inv').onclick=inv;document.getElementById('save').onclick=save;document.getElementById('close').onclick=()=>document.getElementById('sheet').classList.remove('show');
 
 let last=performance.now(),sim=0;
-function tick(dt){
- S.time=(S.time+dt/6)%1440; S.hunger=Math.max(0,S.hunger-dt*.012);S.thirst=Math.max(0,S.thirst-dt*.018);S.energy=Math.max(0,S.energy-dt*(active?.018:.006));
- if(S.fire>0)S.fire=Math.max(0,S.fire-dt*2.2);
- if(S.thirst<=0||S.hunger<=0)S.hp=Math.max(0,S.hp-dt*1.2); else S.hp=Math.min(100,S.hp+dt*.01);
- for(const a of world.animals){a.fear=Math.max(0,a.fear-dt);const d=dist(S,a);if(d<170){a.fear=1.5; a.ang=Math.atan2(a.y-S.y,a.x-S.x)}else if(rnd()<dt*.15)a.ang+=(rnd()-.5)*1.5;a.x+=Math.cos(a.ang)*a.v*dt*(a.fear?1.8:.45);a.y+=Math.sin(a.ang)*a.v*dt*(a.fear?1.8:.45)}
- S.x+=ix*(active?125:0)*dt;S.y+=iy*(active?125:0)*dt;
- sim+=dt;if(sim>8){sim=0;save()}
+function update(dt){
+ let kx=(keys['d']?1:0)-(keys['a']?1:0),ky=(keys['s']?1:0)-(keys['w']?1:0);
+ let ix=Math.abs(input.x)+Math.abs(input.y)?input.x:kx,iy=Math.abs(input.x)+Math.abs(input.y)?input.y:ky;
+ let mag=Math.hypot(ix,iy)||1,speed=2.4*(S.energy>5?1:.45);S.x+=ix/mag*speed*dt*60;S.y+=iy/mag*speed*dt*60;
+ S.minutes=(S.minutes+dt*0.7)%1440;sim+=dt;
+ if(sim>10){sim=0;S.food=Math.max(0,S.food-dt*.08);S.water=Math.max(0,S.water-dt*.12);S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*dt*1.3);
+   if(S.food<15||S.water<15)S.hp=Math.max(0,S.hp-dt*.4);
+   for(let a of S.animals){let d=dist(S,a);if(d<170)a.fear=Math.min(10,a.fear+dt);else a.fear=Math.max(0,a.fear-dt*.15);
+    let ang=a.fear>0?Math.atan2(a.y-S.y,a.x-S.x):Math.atan2(a.dy,a.dx);a.dx=Math.cos(ang);a.dy=Math.sin(ang);a.x+=a.dx*dt*18;a.y+=a.dy*dt*18}
+ }
 }
-function render(){
- ctx.clearRect(0,0,W,H);
- const zoom=1,ox=W/2-S.x,oy=H/2-S.y;
- ctx.fillStyle='#263c2b';ctx.fillRect(0,0,W,H);
- // subtle terrain grid
- ctx.globalAlpha=.12;ctx.strokeStyle='#dce8d533';for(let x=((ox%80)+80)%80;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=((oy%80)+80)%80;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}ctx.globalAlpha=1;
- for(const p of world.ponds){ctx.fillStyle='#315e69';ctx.beginPath();ctx.ellipse(p.x+ox,p.y+oy,p.r,p.r*.72,0,0,TAU);ctx.fill();ctx.strokeStyle='#7ba9a4';ctx.stroke()}
- for(const t of world.trees)if(!t.cut){ctx.fillStyle='#183522';ctx.beginPath();ctx.arc(t.x+ox,t.y+oy,t.r,0,TAU);ctx.fill();ctx.fillStyle='#5d4930';ctx.fillRect(t.x+ox-3,t.y+oy+8,6,14)}
- for(const r of world.rocks)if(!r.taken){ctx.fillStyle='#77776e';ctx.beginPath();ctx.arc(r.x+ox,r.y+oy,r.r,0,TAU);ctx.fill()}
- for(const b of world.berries)if(!b.taken){ctx.fillStyle='#6d5b36';ctx.beginPath();ctx.arc(b.x+ox,b.y+oy,b.r,0,TAU);ctx.fill();ctx.fillStyle='#b85b61';ctx.beginPath();ctx.arc(b.x+ox+3,b.y+oy-2,3,0,TAU);ctx.fill()}
- for(const a of world.animals){ctx.fillStyle='#bda27a';ctx.beginPath();ctx.ellipse(a.x+ox,a.y+oy,12,7,a.ang,0,TAU);ctx.fill()}
- for(const tr of world.tracks){ctx.fillStyle='#ffffff18';ctx.beginPath();ctx.arc(tr.x+ox,tr.y+oy,3,0,TAU);ctx.fill()}
- if(S.fire>0){ctx.fillStyle='#e18b3d';ctx.beginPath();ctx.arc(ox+S.x,oy+S.y+25,14,0,TAU);ctx.fill()}
- ctx.fillStyle='#e6e0cf';ctx.beginPath();ctx.arc(W/2,H/2,13,0,TAU);ctx.fill();ctx.strokeStyle='#17251c';ctx.stroke();
- ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(W/2,H/2-3,4,0,TAU);ctx.fill();
- stats.innerHTML=`День ${Math.max(1,Math.floor(S.day))} · ${String(Math.floor(S.time/60)).padStart(2,'0')}:${String(Math.floor(S.time%60)).padStart(2,'0')}<br>HP ${S.hp.toFixed(0)} · Жажда ${S.thirst.toFixed(0)} · Голод ${S.hunger.toFixed(0)} · Энергия ${S.energy.toFixed(0)}`;
- inv.innerHTML=`Дерево ${S.wood} · Камень ${S.stone}<br>Ягоды ${S.berry} · Вода ${S.water} · Еда ${S.cooked}<br>${S.axe?'Топор ':' '}${S.knife?'Нож ':''}${S.shelter?'Укрытие':''}`;
+function draw(){
+ ctx.fillStyle='#5f7f58';ctx.fillRect(0,0,W,H);
+ let camx=S.x,camy=S.y;
+ for(let o of S.world){let sx=W/2+o.x-camx,sy=H/2+o.y-camy;if(sx<-60||sx>W+60||sy<-60||sy>H+60||o.amount<=0)continue;
+  ctx.save();ctx.translate(sx,sy);
+  if(o.type==='tree'){ctx.fillStyle='#3a291b';ctx.fillRect(-5,5,10,26);ctx.fillStyle='#234b2b';ctx.beginPath();ctx.arc(0,0,24,0,7);ctx.fill()}
+  if(o.type==='rock'){ctx.fillStyle='#77756a';ctx.beginPath();ctx.ellipse(0,6,19,12,0,0,7);ctx.fill()}
+  if(o.type==='berry'){ctx.fillStyle='#2c642f';ctx.beginPath();ctx.arc(0,0,17,0,7);ctx.fill();ctx.fillStyle='#8d3550';ctx.beginPath();ctx.arc(-5,-2,3,0,7);ctx.arc(5,2,3,0,7);ctx.fill()}
+  if(o.type==='pond'){ctx.fillStyle='#3c7180';ctx.beginPath();ctx.ellipse(0,0,50,32,0,0,7);ctx.fill()}
+  if(o.type==='ruin'){ctx.strokeStyle='#6e6453';ctx.lineWidth=7;ctx.strokeRect(-24,-18,48,36)}
+  ctx.restore()
+ }
+ for(let a of S.animals){let sx=W/2+a.x-camx,sy=H/2+a.y-camy;if(sx<-40||sx>W+40||sy<-40||sy>H+40)continue;ctx.fillStyle=a.kind==='wolf'?'#4a4b4d':'#9a754e';ctx.beginPath();ctx.ellipse(sx,sy,16,9,0,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='10px sans-serif';ctx.fillText(a.kind==='wolf'?'волк':'олень',sx-14,sy-14)}
+ ctx.fillStyle='#e8d2a1';ctx.beginPath();ctx.arc(W/2,H/2,11,0,7);ctx.fill();ctx.strokeStyle='#33291e';ctx.lineWidth=3;ctx.stroke();
+ document.getElementById('day').textContent=S.day;document.getElementById('clock').textContent=clock();
+ document.getElementById('hp').textContent=Math.round(S.hp);document.getElementById('water').textContent=Math.round(S.water);document.getElementById('food').textContent=Math.round(S.food);document.getElementById('energy').textContent=Math.round(S.energy);
 }
-function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;tick(dt);render();requestAnimationFrame(loop)} requestAnimationFrame(loop);
-window.addEventListener('error',e=>msgShow('Ошибка: '+e.message));window.addEventListener('unhandledrejection',e=>msgShow('Ошибка: '+e.reason));
-})();
+function loop(t){let dt=Math.min(.05,(t-last)/1000);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
