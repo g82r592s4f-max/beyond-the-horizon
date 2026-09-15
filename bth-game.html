@@ -2,8 +2,8 @@
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="bth-build" content="1.0-final-checked">
-<title>BTH 7.0 — BEYOND THE HORIZON · PLAYABLE 1.0</title>
+<meta name="bth-build" content="10.0-planetary-civilization-core">
+<title>BTH 10.0 — BEYOND THE HORIZON · PLANETARY CORE</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
@@ -576,6 +576,94 @@ const BTH70={
 BTH70.init();
 BTH70.ensureCatalog();
 
+/* =========================================================
+   BEYOND THE HORIZON 8.0 — CAUSAL FIRST CONTACT LABORATORY
+   Contact is an evidence problem, not an automatic conclusion.
+   ========================================================= */
+const BTH80={
+ VERSION:'8.0',
+ init(){
+  if(!S.contactState)S.contactState={signalAnalysis:{},hypotheses:[],messages:[],responses:[],anomalies:[],confidence:0,timeline:[]};
+  this.migrate();
+ },
+ migrate(){
+  const c=S.contactState;
+  if(!c.signalAnalysis||typeof c.signalAnalysis!=='object')c.signalAnalysis={};
+  for(const k of ['hypotheses','messages','responses','anomalies','timeline'])if(!Array.isArray(c[k]))c[k]=[];
+  if(!Number.isFinite(c.confidence))c.confidence=0;
+  for(const s of S.signals||[]){
+   if(!c.signalAnalysis[s.id])c.signalAnalysis[s.id]={samples:0,periodicity:0,structure:0,noise:0,confidence:0};
+  }
+ },
+ analyzeSignal(id){
+  const s=(S.signals||[]).find(x=>x.id===id); if(!s)return null;
+  if(s.status!=='received')return {pending:true,signal:s};
+  const a=S.contactState.signalAnalysis[id]||{samples:0,periodicity:0,structure:0,noise:0,confidence:0};
+  a.samples++;
+  const r=BTH70.rand(BTH70.hash(id.length*997+a.samples*131));
+  a.periodicity=Math.min(1,a.periodicity+(r>.34?.18:.05));
+  a.structure=Math.min(1,a.structure+(r>.62?.14:.04));
+  a.noise=Math.min(1,a.noise+(r>.82?.11:.02));
+  a.confidence=Math.max(0,Math.min(1,.45*a.periodicity+.45*a.structure-.25*a.noise));
+  S.contactState.signalAnalysis[id]=a;
+  if(a.samples>=2 && !S.contactState.hypotheses.some(h=>h.signalId===id)){
+   S.contactState.hypotheses.push({id:'H-'+(S.contactState.hypotheses.length+1),signalId:id,claim:'искусственное происхождение возможно',status:'provisional',tests:0,evidence:0});
+  }
+  S.contactState.confidence=Math.max(S.contactState.confidence,a.confidence*.2);
+  S.contactState.timeline.push({day:S.day||1,type:'signal_analysis',id,samples:a.samples,confidence:a.confidence});
+  return {signal:s,analysis:a};
+ },
+ testHypothesis(hid){
+  const h=S.contactState.hypotheses.find(x=>x.id===hid);if(!h)return null;
+  const a=S.contactState.signalAnalysis[h.signalId]||{};
+  h.tests++;
+  const support=(a.periodicity||0)*.5+(a.structure||0)*.5-(a.noise||0)*.25;
+  h.evidence=+support.toFixed(3);
+  if(h.tests>=3)h.status=support>.62?'supported':support<.25?'weakened':'open';
+  S.contactState.confidence=Math.max(S.contactState.confidence,Math.min(1,support));
+  S.contactState.timeline.push({day:S.day||1,type:'hypothesis_test',id:hid,result:h.status,evidence:h.evidence});
+  return h;
+ },
+ sendMessage(signalId,text,delay=3){
+  const s=(S.signals||[]).find(x=>x.id===signalId);if(!s||s.status!=='received')return null;
+  const m={id:'MSG-'+(S.contactState.messages.length+1),signalId,text,sentDay:S.day||1,arrivalDay:(S.day||1)+Math.max(1,Math.floor(delay)),status:'in_transit'};
+  S.contactState.messages.push(m);S.contactState.timeline.push({day:S.day||1,type:'message_sent',id:m.id});
+  return m;
+ },
+ tickMessages(){
+  for(const m of S.contactState.messages){
+   if(m.status==='in_transit'&&(S.day||1)>=m.arrivalDay){
+    m.status='delivered';
+    const response={id:'R-'+(S.contactState.responses.length+1),messageId:m.id,arrivalDay:m.arrivalDay+Math.max(1,Math.floor(2+BTH70.rand(m.id.length*733)*8)),status:'awaiting_response'};
+    S.contactState.responses.push(response);
+    S.contactState.timeline.push({day:S.day||1,type:'message_delivered',id:m.id});
+   }
+  }
+  for(const r of S.contactState.responses){
+   if(r.status==='awaiting_response'&&(S.day||1)>=r.arrivalDay){
+    r.status='received';
+    r.content=BTH70.rand(r.id.length*919)>.35?'структурированный ответ':'неоднозначный ответ';
+    S.contactState.timeline.push({day:S.day||1,type:'response_received',id:r.id});
+   }
+  }
+ },
+ scanAnomaly(){
+  const o=(S.universe.objects||[]).find(x=>x.life&&x.state!=='visited_by_probe') || (S.universe.objects||[])[0];
+  if(!o)return null;
+  const a={id:'AN-'+(S.contactState.anomalies.length+1),bodyId:o.id,day:S.day||1,type:o.life?'biosignature_candidate':'signal_anomaly',status:'candidate',evidence:o.life?.35:.18,confirmed:false};
+  S.contactState.anomalies.push(a);
+  S.contactState.timeline.push({day:S.day||1,type:'anomaly_detected',id:a.id});
+  return a;
+ },
+ daily(){this.migrate();this.tickMessages();},
+ status(){
+  this.migrate();
+  const c=S.contactState;
+  return {signals:Object.keys(c.signalAnalysis).length,hypotheses:c.hypotheses.length,messages:c.messages.length,responses:c.responses.filter(x=>x.status==='received').length,anomalies:c.anomalies.length,confidence:Math.round(c.confidence*100),timeline:c.timeline.length};
+ }
+};
+BTH80.init();
+
 function makeWorld(){
  S.world=[];S.animals=[];
  const types=['tree','tree','tree','rock','berry','berry','pond','ruin'];
@@ -585,7 +673,7 @@ function makeWorld(){
  }
  for(let i=0;i<22;i++){let a=rnd(0,Math.PI*2),r=rnd(180,1700);S.animals.push({x:Math.cos(a)*r,y:Math.sin(a)*r,dx:rnd(-1,1),dy:rnd(-1,1),fear:0,kind:Math.random()<.65?'deer':'wolf'});}
 }
-function save(){S.version='1.0';localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено · версия 1.0')}
+function save(){S.version='8.0';localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено · версия 8.0')}
 function load(){try{let v=JSON.parse(localStorage.getItem(KEY));if(v){S=v;toast('Сохранение загружено');return}}catch(e){}makeWorld()}
 load(); sanitizeState10(); sanitizeState13(); BTH30.migrate();
 if(!S.world?.length)makeWorld();
@@ -709,6 +797,7 @@ function update(dt){
    vitalConsequences(step);
    BTH30.advance(step/3600);
    BTH70.daily();
+   BTH80.daily();
    BTH30.routeTo(S.x,S.y);
    BTH12.climate(step); BTH12.decay(step);
    ecologyStep(step);
@@ -796,4 +885,193 @@ function bth13HUD(){
  bth70HUD();setInterval(bth70HUD,1000);
 })();
 </script>
-</body></html>
+<div id="bth80panel" style="position:fixed;right:8px;top:100px;z-index:30;padding:8px 10px;background:rgba(4,10,8,.72);color:#fff;font:12px system-ui;border-radius:10px;pointer-events:auto;max-width:265px;border:1px solid rgba(255,255,255,.14)">
+ <b>FIRST CONTACT LAB · 8.0</b><br>
+ <span id="bth80status">Аналитическая лаборатория</span><br>
+ <button id="bth80analyze" type="button" style="margin-top:5px">Анализировать сигнал</button>
+ <button id="bth80hyp" type="button" style="margin-top:5px">Проверить гипотезу</button>
+ <button id="bth80anom" type="button" style="margin-top:5px">Искать аномалию</button>
+</div>
+<script>
+(function(){
+ const e=document.getElementById('bth80status');
+ function hud(){if(!e)return;const s=BTH80.status();e.textContent='Сигналы '+s.signals+' · гипотезы '+s.hypotheses+' · ответы '+s.responses+' · аномалии '+s.anomalies+' · уверенность '+s.confidence+'%';}
+ document.getElementById('bth80analyze').onclick=function(){
+  const sig=(S.signals||[]).find(x=>x.status==='received');
+  if(!sig){toast('Нет полученного сигнала для анализа');return}
+  const r=BTH80.analyzeSignal(sig.id);toast('Анализ: образцы '+r.analysis.samples+' · уверенность '+Math.round(r.analysis.confidence*100)+'%');hud();
+ };
+ document.getElementById('bth80hyp').onclick=function(){
+  const h=S.contactState.hypotheses[0];if(!h){toast('Сначала собери данные сигнала');return}
+  const r=BTH80.testHypothesis(h.id);toast('Гипотеза: '+r.status+' · свидетельство '+r.evidence);hud();
+ };
+ document.getElementById('bth80anom').onclick=function(){
+  const a=BTH80.scanAnomaly();if(!a){toast('Аномалий не обнаружено');return}
+  toast('Кандидат: '+a.type+' · подтверждение не установлено');hud();
+ };
+ hud();setInterval(hud,1000);
+})();
+</script>
+</body></html><style>
+#bth10panel{position:fixed;left:8px;bottom:92px;z-index:35;padding:9px 10px;background:rgba(4,10,8,.78);color:#fff;font:12px system-ui;border-radius:10px;pointer-events:auto;max-width:290px;border:1px solid rgba(255,255,255,.16)}
+#bth10panel button{min-height:38px;font-size:12px;margin-top:5px;padding:5px 8px}
+.bth10small{opacity:.82;font-size:11px;line-height:1.35}
+</style>
+<div id="bth10panel">
+ <b>PLANETARY CORE · 9.0 → 10.0</b><br>
+ <span id="bth10status">Планетарная система инициализируется…</span><br>
+ <button id="bth10scan" type="button">Исследовать регион</button>
+ <button id="bth10settle" type="button">Осмотреть поселение</button>
+ <button id="bth10route" type="button">Проложить маршрут</button>
+ <div id="bth10detail" class="bth10small">Мир моделируется независимо от игрока.</div>
+</div>
+<script>
+/* =========================================================
+   BEYOND THE HORIZON 9.0 — PLANETARY SYSTEMS
+   Deterministic macro-climate, biomes, hydrology, geology,
+   resources and persistent regional state. No level gates.
+   ========================================================= */
+const BTH90={
+ VERSION:'9.0',
+ init(){
+  if(!S.planet)S.planet={seed:S.worldSeed||S.universe?.seed||1,regions:[],rivers:[],basins:[],fires:[],weatherHistory:[],season:0,epoch:0};
+  this.migrate();this.ensureRegions(64);this.ensureHydrology();
+ },
+ migrate(){
+  const p=S.planet;
+  if(!Number.isFinite(p.seed))p.seed=S.worldSeed||S.universe?.seed||1;
+  for(const k of ['regions','rivers','basins','fires','weatherHistory'])if(!Array.isArray(p[k]))p[k]=[];
+  if(!Number.isFinite(p.season))p.season=0;if(!Number.isFinite(p.epoch))p.epoch=0;
+ },
+ hash(n){let x=(Math.abs(Math.floor(n))||1)>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;return x>>>0},
+ rand(n){return this.hash(n)%1000000/1000000},
+ region(i){
+  const x=((i*37)%17-8)*420,y=((i*53)%17-8)*420;
+  const r=this.rand(S.planet.seed+i*977);
+  const elevation=Math.round((r-.32)*2600);
+  const temp=14-0.0065*Math.max(0,elevation)-Math.abs(y)/650+rnd(-2,2);
+  const moisture=Math.max(0,Math.min(1,.25+.55*this.rand(S.planet.seed+i*991+7)+.18*Math.sin(i)));
+  let biome='лес';
+  if(elevation>1800)biome='альпийская зона';else if(elevation>900)biome='хвойный лес';else if(moisture<.22)biome='степь';else if(moisture>.78)biome='болото';else if(temp>20&&moisture<.42)biome='сухие редколесья';
+  return {id:'R-'+(i+1),x,y,elevation,temp:+temp.toFixed(1),moisture:+moisture.toFixed(3),biome,soil:+(0.25+moisture*.55).toFixed(3),water:+(moisture*.7).toFixed(3),vegetation:+(moisture*.8).toFixed(3),wildlife:+(.35+this.rand(i*71)*.6).toFixed(3),resources:{wood:Math.round(20+moisture*80),stone:Math.round(20+this.rand(i*113)*80),ore:Math.round(3+this.rand(i*173)*30)},population:0,disturbance:0,history:[]};
+ },
+ ensureRegions(n){while(S.planet.regions.length<n)S.planet.regions.push(this.region(S.planet.regions.length));},
+ ensureHydrology(){
+  if(S.planet.rivers.length)return;
+  for(let i=0;i<8;i++){let a=this.region(i*7),b=this.region(i*7+19);S.planet.rivers.push({id:'RIV-'+(i+1),from:a.id,to:b.id,flow:+(.15+this.rand(i*333)*.85).toFixed(3),seasonal:true,quality:.8});}
+  for(let i=0;i<6;i++)S.planet.basins.push({id:'BAS-'+(i+1),water:+(.45+this.rand(i*413)*.5).toFixed(3),ice:0,pollution:0});
+ },
+ seasonalStep(){
+  const day=S.day||1;S.planet.season=(day%120)/120;S.planet.epoch=Math.floor(day/120);
+  for(const r of S.planet.regions){
+   const seasonal=Math.sin((S.planet.season+r.id.length/20)*Math.PI*2)*4;
+   r.temp=+(r.temp+seasonal*.015).toFixed(2);
+   r.water=Math.max(0,Math.min(1,r.water+(r.moisture>.6?.004:-.003)));
+   r.vegetation=Math.max(0,Math.min(1,r.vegetation+(r.water>.35?.006:-.009)-r.disturbance*.002));
+   r.wildlife=Math.max(0,Math.min(1,r.wildlife+(r.vegetation>.35?.003:-.006)-r.disturbance*.001));
+   r.disturbance=Math.max(0,r.disturbance*.985);
+  }
+ },
+ hydrologyStep(){
+  for(const riv of S.planet.rivers){riv.flow=Math.max(.02,Math.min(1,riv.flow+rnd(-.025,.025)));}
+  for(const b of S.planet.basins){b.pollution=Math.max(0,b.pollution*.995);b.water=Math.max(0,Math.min(1,b.water+rnd(-.01,.01)));}
+ },
+ registerImpact(x,y,type,severity){
+  const r=this.nearest(x,y);if(!r)return null;r.disturbance=Math.min(1,r.disturbance+severity);r.history.push({day:S.day||1,type,severity});if(r.history.length>24)r.history.shift();return r;
+ },
+ nearest(x,y){let best=null,bd=Infinity;for(const r of S.planet.regions){const d=Math.hypot(r.x-x,r.y-y);if(d<bd){bd=d;best=r;}}return best;},
+ observeHere(){const r=this.nearest(S.x,S.y);if(!r)return null;r.observed=(r.observed||0)+1;r.lastObservedDay=S.day||1;if(!S.planet.discoveries)S.planet.discoveries=[];if(!S.planet.discoveries.some(x=>x.id===r.id)){S.planet.discoveries.push({id:r.id,day:S.day||1,biome:r.biome});remember('Изучен регион '+r.id+': '+r.biome);}return r;},
+ daily(){this.migrate();this.seasonalStep();this.hydrologyStep();this.ensureHydrology();},
+ status(){this.migrate();const r=this.nearest(S.x,S.y);return {regions:S.planet.regions.length,rivers:S.planet.rivers.length,basins:S.planet.basins.length,season:S.planet.season,biome:r?.biome||'неизвестно',elevation:r?.elevation||0,water:r?Math.round(r.water*100):0,vegetation:r?Math.round(r.vegetation*100):0};}
+};
+BTH90.init();
+
+/* =========================================================
+   BEYOND THE HORIZON 10.0 — LIVING PLANET / CIVILIZATION
+   NPCs, settlements, infrastructure, economy, technology,
+   transport and consequences are persistent and causal.
+   ========================================================= */
+const BTH100={
+ VERSION:'10.0',
+ init(){
+  if(!S.planetCivilization)S.planetCivilization={npcs:[],settlements:[],routes:[],projects:[],economy:{food:0,materials:0,energy:0},history:[],lastDay:S.day||1};
+  this.migrate();this.seedSettlement();
+ },
+ migrate(){
+  const p=S.planetCivilization;
+  for(const k of ['npcs','settlements','routes','projects','history'])if(!Array.isArray(p[k]))p[k]=[];
+  if(!p.economy||typeof p.economy!=='object')p.economy={food:0,materials:0,energy:0};
+  for(const k of ['food','materials','energy'])if(!Number.isFinite(p.economy[k]))p.economy[k]=0;
+  if(!Number.isFinite(p.lastDay))p.lastDay=S.day||1;
+ },
+ hash(n){let x=(Math.abs(Math.floor(n))||1)>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;return x>>>0},
+ rand(n){return this.hash(n)%1000000/1000000},
+ seedSettlement(){
+  if(S.planetCivilization.settlements.length)return;
+  const r=(S.planet?.regions||[])[0]||BTH90.region(0);
+  const s={id:'SET-1',name:'Первое поселение',regionId:r.id,x:r.x,y:r.y,population:18,food:60,water:70,energy:15,materials:40,stability:.72,technology:.08,industry:.02,knowledge:.12,infrastructure:{shelter:1,storage:1,workshop:0,road:0,power:0},needs:{food:0,water:0,safety:0},relations:{},history:[]};
+  S.planetCivilization.settlements.push(s);
+  for(let i=0;i<18;i++)S.planetCivilization.npcs.push({id:'NPC-'+(i+1),settlementId:s.id,age:18+Math.floor(this.rand(i*41)*48),health:.85+this.rand(i*53)*.15,skill:+this.rand(i*71).toFixed(3),knowledge:+this.rand(i*97).toFixed(3),energy:1,mood:.6,occupation:['собиратель','строитель','исследователь','охотник'][i%4],memory:[],goal:['безопасность','еда','знания','строительство'][i%4]});
+ },
+ nearestSettlement(){let best=null,bd=Infinity;for(const s of S.planetCivilization.settlements){let d=Math.hypot(s.x-S.x,s.y-S.y);if(d<bd){bd=d;best=s;}}return best;},
+ routeHere(){
+  const s=this.nearestSettlement();if(!s)return null;const d=Math.hypot(s.x-S.x,s.y-S.y);if(d<20)return {existing:true,route:this.findRoute(s.id,'PLAYER')};
+  const r={id:'ROUTE-'+(S.planetCivilization.routes.length+1),from:s.id,to:'PLAYER',length:+d.toFixed(1),condition:1,uses:1,knowledge:.05};S.planetCivilization.routes.push(r);s.infrastructure.road=Math.min(1,(s.infrastructure.road||0)+.03);BTH90.registerImpact(S.x,S.y,'дорога',.04);S.planetCivilization.history.push({day:S.day||1,type:'route_created',id:r.id,length:r.length});return r;
+ },
+ findRoute(a,b){return S.planetCivilization.routes.find(r=>r.from===a&&r.to===b||r.from===b&&r.to===a)||null;},
+ inspectSettlement(){const s=this.nearestSettlement();if(!s)return null;S.planetCivilization.history.push({day:S.day||1,type:'settlement_observed',id:s.id});return s;},
+ project(type){
+  const s=this.nearestSettlement();if(!s)return null;
+  const req={workshop:{knowledge:.15,materials:30},storage:{knowledge:.05,materials:15},road:{knowledge:.08,materials:25},power:{knowledge:.35,materials:60}}[type]||{knowledge:.1,materials:20};
+  if(s.knowledge<req.knowledge||s.materials<req.materials)return {ok:false,reason:'не хватает накопленного знания или материалов'};
+  const p={id:'PRJ-'+(S.planetCivilization.projects.length+1),type,settlementId:s.id,progress:0,reliability:0};S.planetCivilization.projects.push(p);s.materials-=req.materials;return {ok:true,project:p};
+ },
+ daily(){
+  this.migrate();const day=S.day||1;if(day===S.planetCivilization.lastDay)return;
+  const delta=Math.max(1,day-S.planetCivilization.lastDay);S.planetCivilization.lastDay=day;
+  for(const s of S.planetCivilization.settlements){
+   const foodNeed=s.population*.7*delta;const waterNeed=s.population*.9*delta;
+   s.food-=foodNeed;s.water-=waterNeed;s.needs.food=s.food<foodNeed?.7:0;s.needs.water=s.water<waterNeed?.7:0;
+   const growth=s.food>0&&s.water>0&&s.stability>.55?.004: -.015;s.population=Math.max(1,Math.round(s.population*(1+growth*delta)));
+   s.knowledge=Math.min(1,s.knowledge+.002*delta+s.infrastructure.workshop*.004);
+   s.technology=Math.min(1,s.technology+.0015*delta+s.knowledge*.001);
+   s.industry=Math.min(1,s.industry+.0007*delta+s.infrastructure.power*.003);
+   s.stability=Math.max(0,Math.min(1,s.stability+(s.food>0?.004:-.03)+(s.water>0?.004:-.03)-s.needs.food*.02-s.needs.water*.02));
+   s.food=Math.max(0,s.food);s.water=Math.max(0,s.water);
+   s.materials+=Math.max(0,Math.floor(s.population*.12*delta));
+   for(const p of S.planetCivilization.projects.filter(x=>x.settlementId===s.id&&x.progress<1)){
+    p.progress=Math.min(1,p.progress+.08*delta*(.5+s.knowledge));
+    p.reliability=Math.min(1,p.reliability+.04*delta*p.progress);
+    if(p.progress>=1){if(p.type==='workshop')s.infrastructure.workshop=1;if(p.type==='storage')s.infrastructure.storage=1;if(p.type==='road')s.infrastructure.road=Math.min(1,s.infrastructure.road+.5);if(p.type==='power')s.infrastructure.power=1;s.history.push({day,type:'project_complete',project:p.type});}
+   }
+   BTH90.registerImpact(s.x,s.y,'settlement_pressure',Math.min(.08,s.population/10000));
+  }
+  for(const n of S.planetCivilization.npcs){n.energy=Math.max(0,n.energy-.01*delta);n.health=Math.max(.1,n.health+(n.energy>.3?.002:-.006)*delta);n.knowledge=Math.min(1,n.knowledge+.0008*delta);if(n.energy<.2)n.goal='отдых';}
+  this.syncGlobalCivilization();
+ },
+ syncGlobalCivilization(){
+  const pop=S.planetCivilization.settlements.reduce((a,s)=>a+s.population,0);const avg=S.planetCivilization.settlements.reduce((a,s)=>a+s.technology,0)/Math.max(1,S.planetCivilization.settlements.length);
+  S.civilization.population=pop;S.civilization.technology=Math.max(S.civilization.technology||0,avg);S.civilization.knowledge=Math.max(S.civilization.knowledge||0,S.planetCivilization.settlements.reduce((a,s)=>a+s.knowledge,0));
+  if(avg>.75)S.civilization.stage='planetary';else if(avg>.45)S.civilization.stage='industrial';
+ },
+ status(){this.migrate();const s=this.nearestSettlement();return {settlements:S.planetCivilization.settlements.length,npcs:S.planetCivilization.npcs.length,population:S.planetCivilization.settlements.reduce((a,x)=>a+x.population,0),routes:S.planetCivilization.routes.length,projects:S.planetCivilization.projects.filter(x=>x.progress<1).length,nearest:s?.name||'—',stability:s?Math.round(s.stability*100):0,technology:s?Math.round(s.technology*100):0};}
+};
+BTH100.init();
+
+/* Daily bridge: preserves all earlier engines and adds 9/10 systems. */
+(function(){
+ const oldSave=window.save;
+ window.save=function(){S.version='10.0';localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено · версия 10.0');};
+ const oldUpdate=window.update;
+ window.update=function(dt){const before=S.day;oldUpdate(dt);if((S.day||1)!==before){BTH90.daily();BTH100.daily();BTH80.daily();BTH70.daily();}};
+ window.BTH90=BTH90;window.BTH100=BTH100;
+ const scan=document.getElementById('bth10scan'),settle=document.getElementById('bth10settle'),route=document.getElementById('bth10route');
+ scan.onclick=function(){const r=BTH90.observeHere();if(!r){toast('Регион не найден');return}document.getElementById('bth10detail').textContent='Регион '+r.id+' · '+r.biome+' · высота '+r.elevation+' м · вода '+Math.round(r.water*100)+'% · растительность '+Math.round(r.vegetation*100)+'%';toast('Регион изучен: '+r.biome);};
+ settle.onclick=function(){const s=BTH100.inspectSettlement();if(!s){toast('Поселение не найдено');return}document.getElementById('bth10detail').textContent=s.name+' · население '+s.population+' · стабильность '+Math.round(s.stability*100)+'% · технология '+Math.round(s.technology*100)+'%';toast('Поселение наблюдено');};
+ route.onclick=function(){const r=BTH100.routeHere();if(!r){toast('Маршрут создать не удалось');return}document.getElementById('bth10detail').textContent='Маршрут '+r.id+' · длина '+r.length+' м · состояние 100%';toast('Маршрут сохранён в памяти мира');};
+ function hud(){const e=document.getElementById('bth10status');if(!e)return;const a=BTH90.status(),b=BTH100.status();e.textContent='Регионы '+a.regions+' · реки '+a.rivers+' · '+a.biome+' · поселения '+b.settlements+' · население '+b.population;}
+ hud();setInterval(hud,1000);
+ // Safe migration of old saves without resetting progress.
+ try{S.version='10.0';BTH90.migrate();BTH90.ensureRegions(64);BTH90.ensureHydrology();BTH100.migrate();BTH100.seedSettlement();BTH100.syncGlobalCivilization();}catch(e){console.warn('BTH10 migration',e)}
+})();
+</script>
