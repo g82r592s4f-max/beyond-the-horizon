@@ -1,25 +1,17 @@
-# BEYOND THE HORIZON — PLAYABLE 1.0
+# BEYOND THE HORIZON — 3.0
 
-iPhone-first single-file vertical slice.
+World Simulation Core. Consolidates the 1.x material/biology/input/save layers
+with persistent world seed, macro time, world memory, discoveries, route
+memory, causal action history, NPC population/settlement drift and legacy-save
+migration.
 
-## What 1.0 adds
-- deterministic accumulated simulation steps;
-- survival consequences tied to hunger, thirst, energy and temperature;
-- material-state model (hardness, strength, flexibility, flammability, wetness, condition);
-- tool condition and wear tracking;
-- knowledge progression: UNKNOWN → OBSERVED → TESTED → MASTERED;
-- persistent world memory for resource extraction and weather/fire events;
-- slow ecological regeneration;
-- persistent save versioning and backward compatibility with the 0.7 save;
-- statistics for distance, resources gathered and days survived;
-- proven pointer joystick and keyboard fallback;
-- no external libraries or service worker.
+Automated validation:
+- Node JavaScript syntax: PASS
+- structural balance: PASS
+- world simulation core: PASS
+- touch input retained: PASS
+- local save retained: PASS
+- no external runtime dependencies: PASS
 
-## Validation
-- JavaScript syntax (`node --check`): PASS
-- touch pointer handlers: PASS
-- save/load (`localStorage`): PASS
-- required 1.0 systems present: PASS
-- single HTML dependency model: PASS
-
-This is a playable 1.0 vertical slice, not the full civilization/space simulation.
+This is the iPhone HTML vertical slice; no compiled Unity/iOS binary or
+physical-device execution is claimed.

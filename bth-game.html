@@ -2,6 +2,7 @@
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="bth-build" content="1.0-final-checked">
 <title>BEYOND THE HORIZON · PLAYABLE 1.0</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
@@ -57,6 +58,28 @@ const MAT={
  fiber:{hardness:.10,strength:.30,flexibility:.90,flammability:.70},
  meat:{hardness:.05,strength:.08,flexibility:.70,flammability:.15}
 };
+function sanitizeState10(){
+  ensure10();
+  if(!Array.isArray(S.world))S.world=[];
+  if(!Array.isArray(S.animals))S.animals=[];
+  if(!Array.isArray(S.memory))S.memory=[];
+  if(!Array.isArray(S.known))S.known=[];
+  if(!Array.isArray(S.events))S.events=[];
+  if(typeof S.x!=='number'||!Number.isFinite(S.x))S.x=0;
+  if(typeof S.y!=='number'||!Number.isFinite(S.y))S.y=0;
+  if(typeof S.day!=='number'||!Number.isFinite(S.day)||S.day<1)S.day=1;
+  if(typeof S.minutes!=='number'||!Number.isFinite(S.minutes))S.minutes=480;
+  S.minutes=((S.minutes%1440)+1440)%1440;
+  for(const k of ['hp','water','food','energy']){
+    if(typeof S[k]!=='number'||!Number.isFinite(S[k]))S[k]=80;
+    S[k]=Math.max(0,Math.min(100,S[k]));
+  }
+  if(!S.weather||typeof S.weather!=='object')S.weather={type:'ясно',temp:12,wind:.2,humidity:.45};
+  if(typeof S.weather.temp!=='number')S.weather.temp=12;
+  if(typeof S.weather.wind!=='number')S.weather.wind=.2;
+  if(typeof S.weather.humidity!=='number')S.weather.humidity=.45;
+}
+
 function ensure10(){
  if(!S.version)S.version='1.0';
  if(!S.items)S.items={}; if(!S.knowledge)S.knowledge={};
@@ -123,6 +146,260 @@ function worldMemoryFor(o,action){
  if(o.history.length>20)o.history.shift();
 }
 
+
+/* ===== BTH 1.1: MATERIALS / CONDITION / FIELD SCIENCE ===== */
+const BTH11_MAT={
+ wood:{hardness:.35,strength:.45,flexibility:.55,flammability:.85,density:.55},
+ stone:{hardness:.90,strength:.80,flexibility:.08,flammability:.02,density:.90},
+ fiber:{hardness:.10,strength:.30,flexibility:.90,flammability:.70,density:.25},
+ meat:{hardness:.05,strength:.08,flexibility:.70,flammability:.15,density:.30}
+};
+function bth11Material(name, condition, wet, history){
+ const m=BTH11_MAT[name]||{};
+ return {name,hardness:m.hardness??0,strength:m.strength??0,
+   flexibility:m.flexibility??0,flammability:m.flammability??0,
+   density:m.density??0,condition:Math.max(0,Math.min(1,condition??1)),
+   wet:Math.max(0,Math.min(1,wet??0)),history:history||[]};
+}
+function bth11ConditionText(v){
+ return v>.8?'хорошее':v>.55?'нормальное':v>.3?'изношенное':'критическое';
+}
+function bth11RecordObject(o,action){
+ if(!o.history)o.history=[];
+ o.history.push({day:S.day,minute:S.minutes,action});
+ if(o.history.length>24)o.history.shift();
+}
+function bth11UseTool(name,uses){
+ if(!S.items[name])S.items[name]={material:name==='axe'?'wood':'stone',condition:.75,uses:0};
+ S.items[name].uses=(S.items[name].uses||0)+uses;
+ S.items[name].condition=Math.max(0,(S.items[name].condition??1)-uses*.003);
+ if(S.items[name].condition<=0){
+   S.tools[name]=false;
+   delete S.items[name];
+   remember('Инструмент '+name+' сломался после износа.');
+   toast('Сломано: '+name);
+ }
+}
+function bth11FieldObservation(){
+ const near=S.world.filter(o=>Math.hypot(o.x-S.x,o.y-S.y)<95);
+ if(!near.length){toast('Рядом нечего исследовать');return}
+ const o=near[0], m=bth11Material(o.type==='tree'?'wood':o.type==='rock'?'stone':o.type==='berry'?'fiber':'water',o.condition??1,o.wet??0,o.history);
+ const key='field_'+o.type;
+ const level=S.knowledge[key]||'UNKNOWN';
+ const next={UNKNOWN:'OBSERVED',OBSERVED:'TESTED',TESTED:'MASTERED',MASTERED:'MASTERED'}[level];
+ S.knowledge[key]=next;
+ remember('Исследование: '+o.type+' · состояние '+bth11ConditionText(m.condition));
+ if(typeof discover==='function')discover('Полевое наблюдение: '+o.type);
+ toast('Наблюдение записано');
+}
+
+
+/* ===== BTH 1.2: CAUSAL ENVIRONMENT ===== */
+const BTH12={
+ material(name,o){
+  const base=(typeof BTH11_MAT==='object'&&BTH11_MAT[name])||{hardness:.5,strength:.5,flexibility:.5,flammability:.5,density:.5};
+  const wet=Math.max(0,Math.min(1,o?.wet||0));
+  const cond=Math.max(0,Math.min(1,o?.condition??1));
+  return {...base,wet,condition:cond,
+    effectiveStrength:Math.max(.02,base.strength*cond*(1-wet*.45)),
+    effectiveHardness:Math.max(.02,base.hardness*cond*(1-wet*.25)),
+    effectiveFlammability:base.flammability*(1-wet*.75)};
+ },
+ action(tool,object,method){
+  const m=this.material(object.type==='tree'?'wood':object.type==='rock'?'stone':object.type==='berry'?'fiber':'water',object);
+  let skill=0.45;
+  if(tool==='axe'&&S.tools.axe)skill=.8;
+  if(tool==='knife'&&S.tools.knife)skill=.7;
+  const precision=.7+Math.random()*.3;
+  const difficulty=Math.max(.1,m.effectiveHardness);
+  const success=Math.min(.98,Math.max(.05,(skill*precision)/(difficulty+0.25)));
+  return {success,m,quality:Math.min(1,success*precision)};
+ },
+ climate(step){
+  const w=S.weather||{};
+  for(const o of S.world){
+   if(o.type==='tree'||o.type==='berry'){
+    if(w.type==='дождь'||w.humidity>.72)o.wet=Math.min(1,(o.wet||0)+step*.002);
+    else o.wet=Math.max(0,(o.wet||0)-step*.0005);
+   }
+  }
+ },
+ recordCause(cause,effect){
+  if(!S.causes)S.causes=[];
+  S.causes.push({day:S.day,minute:S.minutes,cause,effect});
+  if(S.causes.length>80)S.causes.shift();
+ },
+ decay(step){
+  for(const k of Object.keys(S.items||{})){
+   const it=S.items[k];
+   if(it && it.condition!=null && S.weather?.type==='дождь')
+    it.condition=Math.max(0,it.condition-step*.00005);
+  }
+ }
+};
+if(!S.causes)S.causes=[];
+
+
+/* ===== BTH 1.3: LIVING BIOLOGY ===== */
+const BTH13={
+ ensure(){
+  if(!S.bio)S.bio={season:0,plantSeeds:0,animalBirths:0,animalDeaths:0,predation:0};
+  if(!S.world)return;
+  for(const o of S.world){
+   if((o.type==='tree'||o.type==='berry') && o.bio==null)o.bio={age:1,health:1,repro:0};
+   if(o.type==='animal' && o.bio==null)o.bio={age:1,health:1,hunger:0,thirst:0,energy:1,repro:0};
+  }
+ },
+ season(){
+  return Math.floor((((S.day||1)-1)%120)/30);
+ },
+ plant(step){
+  this.ensure();
+  const season=this.season();
+  S.bio.season=season;
+  for(const o of S.world){
+   if(o.type!=='tree'&&o.type!=='berry')continue;
+   o.bio.age+=step/86400;
+   const rain=(S.weather?.type==='дождь'||S.weather?.humidity>.65)?1.15:0.9;
+   o.bio.health=Math.max(0,Math.min(1,o.bio.health+step/86400*.002*rain));
+   o.bio.repro=Math.min(1,o.bio.repro+step/86400*(season===2?.012:.006));
+   if(o.bio.repro>.95 && Math.random()<step/86400*.08 && S.world.length<260){
+    S.world.push({type:o.type,x:o.x+(Math.random()-.5)*55,y:o.y+(Math.random()-.5)*55,
+      amount:o.type==='tree'?2:3,wet:o.wet||0,condition:1,
+      bio:{age:0,health:.8,repro:0}});
+    o.bio.repro=0; S.bio.plantSeeds++;
+    if(typeof BTH12?.recordCause==='function')BTH12.recordCause('размножение растения','новый '+o.type);
+   }
+  }
+ },
+ animals(step){
+  this.ensure();
+  for(const o of S.world){
+   if(o.type!=='animal')continue;
+   const b=o.bio;
+   b.age+=step/86400;
+   b.hunger=Math.min(1,b.hunger+step/86400*.035);
+   b.thirst=Math.min(1,b.thirst+step/86400*.045);
+   b.energy=Math.max(0,b.energy-step/86400*.018);
+   if(b.hunger>.75)b.health=Math.max(0,b.health-step/86400*.025);
+   if(b.thirst>.8)b.health=Math.max(0,b.health-step/86400*.035);
+   if(b.health<.05 && Math.random()<step/86400*.4){
+    o.dead=true;S.bio.animalDeaths++;
+    if(typeof BTH12?.recordCause==='function')BTH12.recordCause('дефицит ресурсов животного','гибель животного');
+   }
+   if(b.hunger<.45 && b.health>.5)b.repro=Math.min(1,b.repro+step/86400*.008);
+  }
+  for(const a of S.world.filter(o=>o.type==='animal'&&!o.dead)){
+   if(a.bio.repro>.95 && Math.random()<step/86400*.06 && S.world.length<260){
+    S.world.push({type:'animal',x:a.x+(Math.random()-.5)*45,y:a.y+(Math.random()-.5)*45,
+      amount:1,condition:1,bio:{age:0,health:.9,hunger:.1,thirst:.1,energy:1,repro:0}});
+    a.bio.repro=0;S.bio.animalBirths++;
+    if(typeof BTH12?.recordCause==='function')BTH12.recordCause('размножение животного','рождение потомства');
+   }
+  }
+ },
+ ecosystem(step){
+  this.ensure();
+  // Herbivory: nearby animals consume plant biomass.
+  for(const a of S.world.filter(o=>o.type==='animal'&&!o.dead)){
+   if(a.bio.hunger<.5)continue;
+   let best=null,dist=Infinity;
+   for(const p of S.world){
+    if(p.type!=='berry'&&p.type!=='tree')continue;
+    const d=Math.hypot(p.x-a.x,p.y-a.y);
+    if(d<dist&&d<90&&p.amount>0){best=p;dist=d;}
+   }
+   if(best){
+    best.amount=Math.max(0,best.amount-step*.004);
+    a.bio.hunger=Math.max(0,a.bio.hunger-step*.018);
+    a.bio.energy=Math.min(1,a.bio.energy+step*.006);
+    if(best.amount<=0)best.bio.health=Math.max(0,best.bio.health-.08);
+   }
+  }
+  S.world=S.world.filter(o=>!o.dead&&!(o.amount!=null&&o.amount<=0&&o.type==='animal'));
+ }
+};
+BTH13.ensure();
+
+function sanitizeState13(){
+ if(!S.bio)S.bio={season:0,plantSeeds:0,animalBirths:0,animalDeaths:0,predation:0};
+ if(!Array.isArray(S.world))S.world=[];
+ for(const o of S.world){
+  if((o.type==='tree'||o.type==='berry')&&(!o.bio||typeof o.bio!=='object'))
+   o.bio={age:1,health:1,repro:0};
+  if(o.type==='animal'&&(!o.bio||typeof o.bio!=='object'))
+   o.bio={age:1,health:1,hunger:.2,thirst:.2,energy:1,repro:0};
+ }
+}
+
+
+/* ===== BEYOND THE HORIZON 3.0 — WORLD SIMULATION CORE ===== */
+const BTH30={
+ VERSION:'3.0',
+ init(){
+  S.version='3.0';
+  if(!S.worldSeed)S.worldSeed=Math.floor(Math.random()*2147483647);
+  if(!S.history)S.history=[];
+  if(!S.discoveries)S.discoveries=[];
+  if(!S.relationships)S.relationships=[];
+  if(!S.npc)S.npc={population:0,settlements:0,knowledge:0};
+  if(!S.routes)S.routes=[];
+  if(!S.expeditions)S.expeditions=[];
+  if(!S.infrastructure)S.infrastructure={camp:0,shelter:0,workbench:0};
+  if(!S.sim)S.sim={hours:0,days:0,years:0};
+  this.migrate();
+ },
+ migrate(){
+  if(!Array.isArray(S.world))S.world=[];
+  for(const o of S.world){
+   if(o.condition==null)o.condition=1;
+   if(o.history==null)o.history=[];
+   if(o.type==='animal'&&o.bio==null)o.bio={age:1,health:1,hunger:.2,thirst:.2,energy:1,repro:0};
+  }
+ },
+ log(type,data){
+  S.history.push({day:S.day||1,minute:S.minutes||0,type,data});
+  if(S.history.length>500)S.history.shift();
+ },
+ advance(hours){
+  if(!Number.isFinite(hours)||hours<=0)return;
+  S.sim.hours+=hours;
+  while(S.sim.hours>=24){S.sim.hours-=24;S.sim.days++;this.daily();}
+ },
+ daily(){this.worldMemory();this.settlementDrift();},
+ worldMemory(){
+  const animals=(S.world||[]).filter(o=>o.type==='animal'&&!o.dead).length;
+  const plants=(S.world||[]).filter(o=>o.type==='tree'||o.type==='berry').length;
+  this.log('world_snapshot',{animals,plants,day:S.day||1});
+ },
+ settlementDrift(){
+  const food=Math.max(0,S.food||0),water=Math.max(0,S.water||0);
+  if(food>70&&water>70)S.npc.population=Math.min(20,(S.npc.population||0)+.02);
+  if(food<15||water<15)S.npc.population=Math.max(0,(S.npc.population||0)-.04);
+  S.npc.settlements=S.npc.population>=5?1:0;
+ },
+ discover(name,kind){
+  if(!S.discoveries.some(d=>d.name===name)){
+   S.discoveries.push({name,kind,day:S.day||1,confidence:'observed'});
+   this.log('discovery',{name,kind});
+  }
+ },
+ routeTo(x,y){
+  if(!Number.isFinite(x)||!Number.isFinite(y))return;
+  const last=S.routes[S.routes.length-1];
+  if(!last||Math.hypot(last.x-x,last.y-y)>35)S.routes.push({x,y,uses:1,day:S.day||1});
+  else last.uses++;
+ },
+ action(name,consequence){this.log('player_action',{name,consequence});},
+ status(){
+  return {version:this.VERSION,day:S.day||1,
+   animals:(S.world||[]).filter(o=>o.type==='animal'&&!o.dead).length,
+   plants:(S.world||[]).filter(o=>o.type==='tree'||o.type==='berry').length,
+   discoveries:(S.discoveries||[]).length,history:(S.history||[]).length};
+ }
+};
+BTH30.init();
+
 function makeWorld(){
  S.world=[];S.animals=[];
  const types=['tree','tree','tree','rock','berry','berry','pond','ruin'];
@@ -134,7 +411,7 @@ function makeWorld(){
 }
 function save(){S.version='1.0';localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено · версия 1.0')}
 function load(){try{let v=JSON.parse(localStorage.getItem(KEY));if(v){S=v;toast('Сохранение загружено');return}}catch(e){}makeWorld()}
-load(); ensure10();
+load(); sanitizeState10(); sanitizeState13(); BTH30.migrate();
 if(!S.world?.length)makeWorld();
 if(!S.weather)S.weather={type:'ясно',temp:12,wind:.2,humidity:.45};
 if(!S.memory)S.memory=[];
@@ -156,10 +433,14 @@ function nearby(type,max=72){let best=null,bd=max;for(let o of S.world)if(o.type
 function collect(){
  let types=[['tree','wood'],['rock','stone'],['berry','berry']];
  for(let [t,k] of types){let o=nearby(t);if(o){
+   const act=BTH12.action(t==='tree'?'axe':'knife',o,'collect');
+   if(!act.success){toast('Не удалось эффективно обработать ресурс');BTH12.recordCause('попытка сбора '+t,'неудачный результат');return}
    let n=Math.max(1,Math.min(Math.floor(o.amount),t==='tree'&&S.tools.axe?2:1));
+   if(act.quality<.45)n=1;
    if(t==='tree'&&!S.tools.axe)n=1;
    S.inv[k]+=n;o.amount=Math.max(0,o.amount-n);worldMemoryFor(o,'сбор');
    S.stats.resourcesGathered=(S.stats.resourcesGathered||0)+n;
+   BTH12.recordCause('сбор '+t,'ресурс изменён: '+k+' × '+n);
    if(t==='tree'&&S.tools.axe)itemWear('axe',n);
    else if(t==='rock'&&S.tools.knife)itemWear('knife',n*.3);
    observe(k,materialState(k,o),'Наблюдение: '+k+' имеет изменяемое состояние');
@@ -250,7 +531,11 @@ function update(dt){
    S.water=Math.max(0,S.water-step*.12);
    S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*step*1.3);
    vitalConsequences(step);
+   BTH30.advance(step/3600);
+   BTH30.routeTo(S.x,S.y);
+   BTH12.climate(step); BTH12.decay(step);
    ecologyStep(step);
+   BTH13.plant(step); BTH13.animals(step); BTH13.ecosystem(step);
    eventStep(step);
    for(let a of S.animals){
      let d=dist(S,a);
@@ -283,4 +568,24 @@ function draw(){
  document.getElementById('weather').textContent=S.weather?.type||'ясно';document.getElementById('wt').textContent=Math.round(S.weather?.temp||12)+'°C';
 }
 function loop(t){let dt=Math.min(.05,(t-last)/1000);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
-</script></body></html>
+
+function bth11HUD(){
+ const c=document.getElementById('canvas'); if(!c)return;
+ const ctx=c.getContext('2d');
+ ctx.save();ctx.fillStyle='rgba(0,0,0,.42)';ctx.fillRect(10,10,230,74);
+ ctx.fillStyle='#fff';ctx.font='12px sans-serif';
+ const w=S.weather||{};
+ ctx.fillText('День '+S.day+'  '+Math.floor(S.minutes/60).toString().padStart(2,'0')+':'+Math.floor(S.minutes%60).toString().padStart(2,'0'),18,28);
+ ctx.fillText('Погода: '+(w.type||'ясно')+'  '+Math.round(w.temp||0)+'°C',18,45);
+ ctx.fillText('Здоровье '+Math.round(S.hp)+'  Вода '+Math.round(S.water)+'  Еда '+Math.round(S.food),18,62);
+ ctx.fillText('История причин: '+((S.causes||[]).length),18,79);
+ ctx.restore();
+}
+function bth13HUD(){
+ const e=document.getElementById('bth13eco');
+ if(e)e.textContent='Жизнь мира: растения '+(S.bio?.plantSeeds||0)+' · рождения '+(S.bio?.animalBirths||0)+' · потери '+(S.bio?.animalDeaths||0);
+}
+
+
+</script><button data-act="observe" onclick="bth11FieldObservation()">Исследовать</button><div id="bth13eco" style="position:fixed;left:10px;bottom:8px;padding:6px 9px;background:rgba(0,0,0,.45);color:#fff;font:12px system-ui;border-radius:8px;pointer-events:none">Жизнь мира</div><script>setInterval(bth13HUD,1000);</script><div id="bth30panel" style="position:fixed;right:8px;top:8px;z-index:20;padding:7px 9px;background:rgba(0,0,0,.48);color:#fff;font:11px system-ui;border-radius:8px;pointer-events:none">BTH 3.0</div>
+<script>function bth30HUD(){const e=document.getElementById('bth30panel');if(!e)return;const s=BTH30.status();e.textContent='BTH 3.0 · День '+s.day+' · Животные '+s.animals+' · Растения '+s.plants+' · Открытия '+s.discoveries;}setInterval(bth30HUD,1000);bth30HUD();</script></body></html>
