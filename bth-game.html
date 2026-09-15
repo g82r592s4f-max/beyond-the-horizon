@@ -2,7 +2,7 @@
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>BEYOND THE HORIZON · PLAYABLE 0.5</title>
+<title>BEYOND THE HORIZON · PLAYABLE 1.0</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
@@ -41,6 +41,87 @@ let S={x:0,y:0,day:1,minutes:480,hp:100,water:80,food:80,energy:100,temp:37,
 inv:{wood:0,stone:0,berry:0,rawmeat:0,cooked:0,water:0,fuel:0},
 tools:{knife:false,axe:false,shelter:false,fire:false},known:[],memory:[],
 weather:{type:'ясно',temp:12,wind:0.2,humidity:0.45},world:[],animals:[]};
+S.version='1.0';
+S.items={};
+S.knowledge={};
+S.ecology={};
+S.events=[];
+S.stats={distance:0,resourcesGathered:0,daysSurvived:0};
+
+
+
+/* ===== BEYOND THE HORIZON 1.0 SYSTEMS ===== */
+const MAT={
+ wood:{hardness:.35,strength:.45,flexibility:.55,flammability:.85},
+ stone:{hardness:.90,strength:.80,flexibility:.08,flammability:.02},
+ fiber:{hardness:.10,strength:.30,flexibility:.90,flammability:.70},
+ meat:{hardness:.05,strength:.08,flexibility:.70,flammability:.15}
+};
+function ensure10(){
+ if(!S.version)S.version='1.0';
+ if(!S.items)S.items={}; if(!S.knowledge)S.knowledge={};
+ if(!S.ecology)S.ecology={}; if(!S.events)S.events=[];
+ if(!S.stats)S.stats={distance:0,resourcesGathered:0,daysSurvived:0};
+ for(const k of ['wood','stone','berry','rawmeat','cooked','water','fuel']) if(typeof S.inv[k]!=='number')S.inv[k]=0;
+}
+ensure10();
+
+function materialState(material,o){
+ const m=MAT[material]||{};
+ return {
+   material, hardness:m.hardness??0, strength:m.strength??0,
+   flexibility:m.flexibility??0, flammability:m.flammability??0,
+   wet:Math.max(0,Math.min(1,o?.wet||0)),
+   condition:Math.max(0,Math.min(1,o?.condition??1)),
+   history:o?.history||[]
+ };
+}
+function itemWear(name,amount){
+ if(!S.items[name])S.items[name]={condition:1,uses:0,material:name};
+ const it=S.items[name]; it.uses=(it.uses||0)+amount;
+ it.condition=Math.max(0,it.condition-amount*.0025);
+ if(it.condition<.15) remember('Инструмент '+name+' сильно изношен.');
+}
+function observe(key,state,text){
+ const rank=S.knowledge[key]||'UNKNOWN';
+ const next={UNKNOWN:'OBSERVED',OBSERVED:'TESTED',TESTED:'MASTERED',MASTERED:'MASTERED'}[rank];
+ if(next&&next!==rank){S.knowledge[key]=next;discover(text+' ['+next+']');}
+}
+function ecologyStep(step){
+ const regen=Math.min(.08,step/3600);
+ for(const o of S.world){
+   if(o.type==='berry') o.amount=Math.min(3,o.amount+regen*(o.wet>.2?1.4:.7));
+   if(o.type==='tree') o.amount=Math.min(6,o.amount+regen*.12);
+   if(o.type==='pond') o.amount=1;
+   if(o.wet>0)o.wet=Math.max(0,o.wet-step*.0008);
+ }
+ for(const a of S.animals){
+   if(a.kind==='deer' && Math.random()<step/5000)a.fear=Math.max(0,a.fear-1);
+ }
+}
+function eventStep(step){
+ // Causal, persistent world memory: only record an event when its state changes.
+ if(!S.events)S.events=[];
+ const wet=S.weather.type==='дождь';
+ const key='rain_'+S.day;
+ if(wet && !S.events.some(e=>e.key===key)){
+   S.events.push({key,type:'weather',day:S.day,text:'Сильные осадки изменили состояние местности.'});
+   remember('Мир: после дождя поверхность и растительность стали влажнее.');
+ }
+ if(S.tools.fire && Math.random()<step*.00015){
+   const key2='fire_'+S.day+'_'+Math.floor(S.minutes/60);
+   if(!S.events.some(e=>e.key===key2)){
+     S.events.push({key:key2,type:'fire',day:S.day,text:'Очаг требует топлива и внимания.'});
+     remember('Мир: огонь требует ресурсов и контроля.');
+   }
+ }
+ if(S.events.length>120)S.events.splice(0,S.events.length-120);
+}
+function worldMemoryFor(o,action){
+ if(!o.history)o.history=[];
+ o.history.push({day:S.day,minute:S.minutes,action});
+ if(o.history.length>20)o.history.shift();
+}
 
 function makeWorld(){
  S.world=[];S.animals=[];
@@ -51,9 +132,15 @@ function makeWorld(){
  }
  for(let i=0;i<22;i++){let a=rnd(0,Math.PI*2),r=rnd(180,1700);S.animals.push({x:Math.cos(a)*r,y:Math.sin(a)*r,dx:rnd(-1,1),dy:rnd(-1,1),fear:0,kind:Math.random()<.65?'deer':'wolf'});}
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено')}
+function save(){S.version='1.0';localStorage.setItem(KEY,JSON.stringify(S));toast('Сохранено · версия 1.0')}
 function load(){try{let v=JSON.parse(localStorage.getItem(KEY));if(v){S=v;toast('Сохранение загружено');return}}catch(e){}makeWorld()}
-load(); if(!S.world?.length)makeWorld(); if(!S.weather)S.weather={type:'ясно',temp:12,wind:.2,humidity:.45}; if(!S.memory)S.memory=[];
+load(); ensure10();
+if(!S.world?.length)makeWorld();
+if(!S.weather)S.weather={type:'ясно',temp:12,wind:.2,humidity:.45};
+if(!S.memory)S.memory=[];
+if(!S.items.knife&&S.tools.knife)S.items.knife={material:'stone',condition:.7,uses:0};
+if(!S.items.axe&&S.tools.axe)S.items.axe={material:'stone',condition:.7,uses:0};
+
 
 const input={x:0,y:0};let joyId=null;
 const joy=document.getElementById('joy'),knob=document.getElementById('knob');
@@ -68,7 +155,16 @@ function clock(){let h=Math.floor(S.minutes/60)%24,m=Math.floor(S.minutes%60);re
 function nearby(type,max=72){let best=null,bd=max;for(let o of S.world)if(o.type===type){let d=dist(S,o);if(d<bd&&o.amount>0){best=o;bd=d}}return best}
 function collect(){
  let types=[['tree','wood'],['rock','stone'],['berry','berry']];
- for(let [t,k] of types){let o=nearby(t);if(o){let n=Math.max(1,Math.floor(o.amount));S.inv[k]+=n;o.amount=0;o.history.push({day:S.day,action:'сбор'});remember('Извлечён ресурс: '+k);discover(k==='wood'?'наблюдение: древесина имеет различное состояние':'наблюдение: ресурс имеет конечный запас');toast('Получено: '+k+' × '+n);return}}
+ for(let [t,k] of types){let o=nearby(t);if(o){
+   let n=Math.max(1,Math.min(Math.floor(o.amount),t==='tree'&&S.tools.axe?2:1));
+   if(t==='tree'&&!S.tools.axe)n=1;
+   S.inv[k]+=n;o.amount=Math.max(0,o.amount-n);worldMemoryFor(o,'сбор');
+   S.stats.resourcesGathered=(S.stats.resourcesGathered||0)+n;
+   if(t==='tree'&&S.tools.axe)itemWear('axe',n);
+   else if(t==='rock'&&S.tools.knife)itemWear('knife',n*.3);
+   observe(k,materialState(k,o),'Наблюдение: '+k+' имеет изменяемое состояние');
+   remember('Извлечён ресурс: '+k+' × '+n);
+   toast('Получено: '+k+' × '+n);return}}
  let a=S.animals.find(a=>dist(S,a)<70);if(a&&a.kind==='deer'){S.inv.rawmeat++;toast('Получено: сырое мясо ×1');return}
  toast('Рядом нечего собрать');
 }
@@ -76,17 +172,24 @@ function eat(){if(S.inv.cooked>0){S.inv.cooked--;S.food=Math.min(100,S.food+35);
 function drink(){let p=nearby('pond',100);if(p){S.water=Math.min(100,S.water+30);toast('Напился из водоёма')}else if(S.inv.water>0){S.inv.water--;S.water=Math.min(100,S.water+35);toast('Выпита вода')}else toast('Нет безопасной воды рядом')}
 function makeFire(){if(S.tools.fire){toast('Очаг уже есть');return}if(S.inv.wood>=3&&S.inv.stone>=2){S.inv.wood-=3;S.inv.stone-=2;S.tools.fire=true;toast('Создан очаг')}else toast('Нужно 3 дерева и 2 камня')}
 function craft(){
- if(!S.tools.knife&&S.inv.stone>=2&&S.inv.wood>=1){S.inv.stone-=2;S.inv.wood--;S.tools.knife=true;toast('Создан нож');return}
- if(!S.tools.axe&&S.tools.knife&&S.inv.stone>=2&&S.inv.wood>=2){S.inv.stone-=2;S.inv.wood-=2;S.tools.axe=true;toast('Создан топор');return}
+ if(!S.tools.knife&&S.inv.stone>=2&&S.inv.wood>=1){
+ S.inv.stone-=2;S.inv.wood--;S.tools.knife=true;S.items.knife={material:'stone',condition:.82,uses:0};
+ observe('knife','TESTED','Получен рабочий режущий инструмент');toast('Создан нож');return}
+ if(!S.tools.axe&&S.tools.knife&&S.inv.stone>=2&&S.inv.wood>=2){
+ S.inv.stone-=2;S.inv.wood-=2;S.tools.axe=true;S.items.axe={material:'stone',condition:.88,uses:0};
+ observe('axe','TESTED','Создан инструмент для обработки древесины');toast('Создан топор');return}
  if(!S.tools.shelter&&S.inv.wood>=8){S.inv.wood-=8;S.tools.shelter=true;toast('Построено укрытие');return}
  if(S.inv.rawmeat>0&&S.tools.fire){S.inv.rawmeat--;S.inv.cooked++;toast('Мясо приготовлено');return}
  toast('Пока нечего создавать');
 }
-function sleep(){let h=S.tools.shelter?8:4;S.minutes=(S.minutes+h*60)%1440;S.day++;S.energy=Math.min(100,S.energy+70);S.food=Math.max(0,S.food-10);S.water=Math.max(0,S.water-10);toast('Проснулся. Мир продолжал жить без тебя.')}
+function sleep(){let h=S.tools.shelter?8:4;S.minutes=(S.minutes+h*60)%1440;S.day++;S.stats.daysSurvived=(S.stats.daysSurvived||0)+1;S.energy=Math.min(100,S.energy+70);S.food=Math.max(0,S.food-10);S.water=Math.max(0,S.water-10);toast('Проснулся. Мир продолжал жить без тебя.')}
 function openSheet(title,body){document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;document.getElementById('sheet').classList.add('show')}
 function inv(){openSheet('Инвентарь',Object.entries(S.inv).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')+
 `<h3>Инструменты</h3>`+Object.entries(S.tools).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v?'есть':'нет'}</b></div>`).join('')+
-`<h3>Знания</h3>`+(S.known?.length?S.known.map(x=>`<div class="row"><span>${x}</span></div>`).join(''):'<div class="small">Пока нет подтверждённых наблюдений.</div>')+
+`<h3>Состояние инструментов</h3>`+
+(Object.entries(S.items||{}).map(([k,v])=>`<div class="row"><span>${k}</span><b>${Math.round((v.condition||0)*100)}%</b></div>`).join('')||'<div class="small">Инструменты ещё не изготовлены.</div>')+
+`<h3>Знания</h3>`+
+(Object.entries(S.knowledge||{}).map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')||'<div class="small">Наблюдения ещё не накоплены.</div>')+
 `<h3>Память мира</h3>`+(S.memory?.slice(-8).map(x=>`<div class="row"><span>День ${x.day}</span><span>${x.text}</span></div>`).join('')||'<div class="small">История пока пуста.</div>'))}
 document.getElementById('act').onclick=collect;document.getElementById('eat').onclick=eat;document.getElementById('drink').onclick=drink;document.getElementById('fire').onclick=makeFire;document.getElementById('craft').onclick=craft;document.getElementById('sleep').onclick=sleep;document.getElementById('inv').onclick=inv;document.getElementById('save').onclick=save;document.getElementById('close').onclick=()=>document.getElementById('sheet').classList.remove('show');
 
@@ -123,33 +226,40 @@ function environmentalStep(dt){
 }
 
 function vitalConsequences(step){
-      if(thirst<=0 || hunger<=0){
-        hp=Math.max(0,hp-step*0.015);
-      }
-      if(energy<=0){
-        hp=Math.max(0,hp-step*0.006);
-      }
-      if(temp<34 || temp>39){
-        hp=Math.max(0,hp-step*0.01);
-      }
-      if(hp<=0){
-        hp=35; hunger=Math.max(hunger,20); thirst=Math.max(thirst,20);
-        energy=Math.max(energy,20);
-        memory.unshift({day:day,text:"Потеря сознания: организм достиг критического состояния."});
-        memory=memory.slice(0,40);
-      }
-    }
+  if(S.water<=0 || S.food<=0) S.hp=Math.max(0,S.hp-step*.015);
+  if(S.energy<=0) S.hp=Math.max(0,S.hp-step*.006);
+  if(S.temp<34 || S.temp>39) S.hp=Math.max(0,S.hp-step*.01);
+  if(S.hp<=0){
+    S.hp=35; S.food=Math.max(S.food,20); S.water=Math.max(S.water,20);
+    S.energy=Math.max(S.energy,20);
+    remember('Потеря сознания: организм достиг критического состояния.');
+    toast('Критическое состояние');
+  }
+}
 
 function update(dt){
  let kx=(keys['d']?1:0)-(keys['a']?1:0),ky=(keys['s']?1:0)-(keys['w']?1:0);
  let ix=Math.abs(input.x)+Math.abs(input.y)?input.x:kx,iy=Math.abs(input.x)+Math.abs(input.y)?input.y:ky;
  let mag=Math.hypot(ix,iy)||1,speed=2.4*(S.energy>5?1:.45);S.x+=ix/mag*speed*dt*60;S.y+=iy/mag*speed*dt*60;
- S.minutes=(S.minutes+dt*0.7)%1440;sim+=dt;
- if(sim>=10){const step=sim;sim=0;weatherStep();environmentalStep(step);S.food=Math.max(0,S.food-step*.08);S.water=Math.max(0,S.water-step*.12);S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*step*1.3);
-if(S.food<=0||S.water<=0||S.energy<=0||S.temp<34||S.temp>39)S.hp=Math.max(0,S.hp-step*.01);
-   if(S.food<15||S.water<15)S.hp=Math.max(0,S.hp-dt*.4);
-   for(let a of S.animals){let d=dist(S,a);if(d<170)a.fear=Math.min(10,a.fear+dt);else a.fear=Math.max(0,a.fear-dt*.15);
-    let ang=a.fear>0?Math.atan2(a.y-S.y,a.x-S.x):Math.atan2(a.dy,a.dx);a.dx=Math.cos(ang);a.dy=Math.sin(ang);a.x+=a.dx*dt*18;a.y+=a.dy*dt*18}
+ const oldx=S.x,oldy=S.y;
+ S.minutes=(S.minutes+dt*0.7)%1440; S.stats.distance=(S.stats.distance||0)+Math.hypot(S.x-oldx,S.y-oldy); sim+=dt;
+ if(sim>=10){
+   const step=sim; sim=0;
+   weatherStep(); environmentalStep(step);
+   S.food=Math.max(0,S.food-step*.08);
+   S.water=Math.max(0,S.water-step*.12);
+   S.energy=Math.max(0,S.energy-(Math.abs(ix)+Math.abs(iy))*step*1.3);
+   vitalConsequences(step);
+   ecologyStep(step);
+   eventStep(step);
+   for(let a of S.animals){
+     let d=dist(S,a);
+     if(d<170)a.fear=Math.min(10,a.fear+step/10);
+     else a.fear=Math.max(0,a.fear-step*.015);
+     let ang=a.fear>0?Math.atan2(a.y-S.y,a.x-S.x):Math.atan2(a.dy,a.dx);
+     a.dx=Math.cos(ang); a.dy=Math.sin(ang);
+     a.x+=a.dx*step*1.8; a.y+=a.dy*step*1.8;
+   }
  }
 }
 function draw(){
