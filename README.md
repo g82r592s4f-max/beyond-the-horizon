@@ -1,15 +1,16 @@
-BTH 20.1 — VERTICAL SLICE: LIFE
+BTH 20.2 — MOBILE UX CONSOLIDATION
 
-This build deepens BTH 20.0 without changing the original progression.
+Purpose: turn the 20.x vertical slice into a readable iPhone-first interface.
 
-Added:
-- persistent home location and return distance
-- quiet/comfort moments as world history
-- animal observation interaction
-- human encounter foundation
-- first-day phase HUD
-- integrated sleep -> autonomous world tick
-- dedicated BTH 20.1 persistence layer
+Changes:
+- hides overlapping legacy development panels;
+- adds one unified BTH command deck;
+- tabs: Life, Home, Science, World;
+- preserves existing underlying systems and actions;
+- keeps touch joystick and core survival controls;
+- no external runtime dependencies.
 
-This is a browser/iPhone prototype, not a compiled iOS binary.
-Static syntax/integrity checks are required before device testing.
+Validation:
+- inline JavaScript syntax checked with Node.js: PASS
+- required UI structure checked: PASS
+- ZIP integrity: checked after packaging.

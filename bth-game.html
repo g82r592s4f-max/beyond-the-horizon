@@ -18,6 +18,22 @@ button:active{transform:scale(.96);background:#233d2c}
 #sheet{position:fixed;inset:0;z-index:20;background:#07100df2;display:none;padding:18px;overflow:auto}
 #sheet.show{display:block}.sheetin{max-width:520px;margin:auto}.close{float:right;width:44px;min-height:44px}.row{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #ffffff18}.small{opacity:.72;font-size:12px}
 h2{margin:6px 0 14px}.bar{height:7px;background:#ffffff18;border-radius:9px;overflow:hidden}.fill{height:100%;background:#b7d39b}
+
+/* BTH 20.2 — Mobile UX consolidation: legacy development panels are hidden behind one command deck. */
+#bth30panel,#bth70panel,#bth80panel,#bth11panel,#bth12panel,#bth10panel{display:none!important}
+#bth13eco{z-index:24!important;left:14px!important;bottom:8px!important;font-size:11px!important}
+#bth20slice{display:none!important}
+#bth20command{position:fixed;left:12px;right:12px;top:82px;z-index:45;pointer-events:auto;font-size:13px}
+#bth20command .deck{background:rgba(4,10,8,.82);border:1px solid rgba(255,255,255,.16);border-radius:18px;backdrop-filter:blur(14px);box-shadow:0 10px 35px rgba(0,0,0,.25);padding:10px}
+#bth20command .brand{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+#bth20command .brand b{font-size:14px;letter-spacing:.3px}
+#bth20command .brand span{opacity:.65;font-size:11px}
+#bth20command .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#bth20command .tabs button{min-height:42px;font-size:11px;padding:0 4px;border-radius:11px}
+#bth20command .content{margin-top:8px;padding:9px;border-radius:12px;background:rgba(0,0,0,.18);line-height:1.4;min-height:50px}
+#bth20command .content button{min-height:44px;margin:5px 4px 0 0;padding:0 10px;font-size:12px;border-radius:11px}
+#bth20command .muted{opacity:.65;font-size:11px}
+@media (max-height:700px){#bth20command{top:72px}.tabs button{min-height:38px!important}.content{padding:7px!important}}
 </style></head><body>
 <canvas id="c"></canvas>
 <div id="top"><div class="panel"><b>BEYOND THE HORIZON</b><br>PLAYABLE 0.6 · день <span id="day">1</span> · <span id="clock">08:00</span><br><span id="weather">ясно</span> · <span id="wt">12°C</span></div>
@@ -1357,5 +1373,50 @@ BTH100.init();
   root.BTH18={tick(){root.BTH14.step(); root.settlements.forEach(s=>{s.food=Math.max(0,s.food+s.population*.4-root.ecosystem.pressure*2);s.water=Math.max(0,s.water+s.population*.3);s.history.push({day:root.life.day,population:s.population,food:s.food});}); root.npcs.forEach(n=>{n.age+=1/3650;n.needs.food=Math.min(1,n.needs.food+.02);n.needs.water=Math.min(1,n.needs.water+.03);});log('world','Мир продолжил развиваться без игрока');return root;}};
   root.BTH19={continueAs(name){let old=root.generations.activeCharacter;root.generations.lineage.push({from:old,to:name,day:root.life.day});root.generations.legacy.push({character:old,day:root.life.day,memories:root.worldMemory.slice(-20)});root.generations.activeCharacter=name;log('legacy','История продолжена новым поколением: '+name);return root.generations;}};
   root.BTH20={summary(){return {version:'20.0',days:root.life.day,animals:root.animals.filter(a=>a.alive).length,plants:root.ecosystem.plants,npcs:root.npcs.length,settlements:root.settlements.length,technologies:root.technology.known.length,memories:root.worldMemory.length,activeCharacter:root.generations.activeCharacter};}};
+})();
+</script>
+
+<div id="bth20command" aria-label="Панель мира BTH">
+ <div class="deck">
+  <div class="brand"><b>BEYOND THE HORIZON</b><span id="bth20build">20.2 · Жизнь мира</span></div>
+  <div class="tabs">
+   <button type="button" data-tab="life">Жизнь</button>
+   <button type="button" data-tab="home">Дом</button>
+   <button type="button" data-tab="science">Наука</button>
+   <button type="button" data-tab="world">Мир</button>
+  </div>
+  <div class="content" id="bth20content"></div>
+ </div>
+</div>
+<script>
+(function(){
+ const panel=document.getElementById('bth20command'), out=document.getElementById('bth20content'); if(!panel||!out)return;
+ function state(){
+  const r=window.BTH_STATE||{}; const l=r.life||{}; const s=window.BTH100&&BTH100.status?BTH100.status():null;
+  return {r,l,s};
+ }
+ function render(tab){
+  const {r,l,s}=state();
+  let h='';
+  if(tab==='life') h='<b>Текущий момент</b><br>День '+(l.day||1)+' · '+(l.phase||'утро')+'<br><span class="muted">Не спеши. Наблюдение тоже является действием.</span><br><button type="button" id="uiObserve">Осмотреться</button><button type="button" id="uiQuiet">Побыть здесь</button><button type="button" id="uiSleep">Сон</button>';
+  if(tab==='home') h='<b>Дом</b><br>'+(l.home?'Твоё место сохранено.':'У тебя пока нет дома.')+'<br><button type="button" id="uiHome">Сделать домом</button><button type="button" id="uiArchive">Личный архив</button>';
+  if(tab==='science') h='<b>Исследование</b><br>Открытий: '+((r.technology&&r.technology.known)||[]).length+' · экспериментов: '+((r.technology&&r.technology.experiments)||[]).length+'<br><button type="button" id="uiSignal">Анализировать сигнал</button><button type="button" id="uiHyp">Проверить гипотезу</button><button type="button" id="uiAnom">Искать аномалию</button>';
+  if(tab==='world') h='<b>Мир без игрока</b><br>Животных: '+((r.animals||[]).filter(a=>a.alive).length)+' · растений: '+((r.ecosystem&&r.ecosystem.plants)||0)+'<br>Поселений: '+((s&&s.settlements)||((r.settlements||[]).length))+' · NPC: '+((s&&s.npcs)||((r.npcs||[]).length))+'<br><button type="button" id="uiRegion">Исследовать регион</button><button type="button" id="uiSettlement">Осмотреть поселение</button>';
+  out.innerHTML=h;
+  const click=(id,fn)=>{const e=document.getElementById(id);if(e)e.onclick=fn;};
+  click('uiObserve',()=>{if(window.observeFirst)window.observeFirst();else if(window.bth11FieldObservation)window.bth11FieldObservation();});
+  click('uiQuiet',()=>{if(document.getElementById('bth11quiet'))document.getElementById('bth11quiet').click();else toast&&toast('Ты остаёшься здесь.');});
+  click('uiSleep',()=>document.getElementById('sleep')?.click());
+  click('uiHome',()=>document.getElementById('bth11home')?.click()||document.getElementById('bth20homeBtn')?.click());
+  click('uiArchive',()=>document.getElementById('bth11archive')?.click());
+  click('uiSignal',()=>document.getElementById('bth80analyze')?.click());
+  click('uiHyp',()=>document.getElementById('bth80hyp')?.click());
+  click('uiAnom',()=>document.getElementById('bth80anom')?.click());
+  click('uiRegion',()=>document.getElementById('bth10scan')?.click());
+  click('uiSettlement',()=>document.getElementById('bth10settle')?.click());
+ }
+ panel.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>render(b.dataset.tab));
+ render('life');
+ setInterval(()=>{const active=panel.querySelector('[data-tab].active');render(active?active.dataset.tab:'life')},5000);
 })();
 </script>
