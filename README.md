@@ -1,29 +1,22 @@
-# BEYOND THE HORIZON — iPhone Prototype 11.0
+# BEYOND THE HORIZON — BTH 12.0
+## THE FIRST REAL DAY
 
-## SOUL & HOME / EXPERIENCE LAYER
+Vertical-slice layer connecting the existing survival, weather, physiology, shelter, fire, memory and SOUL & HOME systems into a coherent first-day loop.
 
-BTH 11.0 keeps the original production trajectory intact:
-**survival → knowledge → technology → civilization → planetary systems → space → signals → first contact → unknown**.
+### Added
+- First-day persistent state and phase tracking.
+- Contextual survival guidance based on actual needs and conditions.
+- Weather exposure accumulation/recovery.
+- Shelter/fire protection influence on exposure.
+- Observation action and first-day memory.
+- Sleep quality derived from shelter, fire, food, water and exposure.
+- New-morning memory and continuity.
+- Backward-compatible localStorage migration.
 
-This release adds the human emotional layer requested for the project, without replacing the simulation:
-- persistent personal home location;
-- place attachment and return memory;
-- contextual comfort/quiet moments rather than an abstract happiness bar;
-- personal journal and archive;
-- world-memory and personal-memory coexistence;
-- emerging story threads linked to the original progression (home, exploration, people, signal);
-- legacy counters that survive through the save;
-- no mandatory quests, FOMO, daily rewards, or artificial retention mechanics;
-- backward-compatible local save migration from earlier versions;
-- single-file, dependency-free iPhone web prototype.
+### Verification
+- JavaScript syntax: PASS (Node --check)
+- No external runtime dependencies introduced.
+- Existing systems retained rather than replaced.
 
-The emotional layer is deliberately non-linear: the player may stay at home, explore, build civilization, or continue toward space and first contact.
-
-## Verification
-- JavaScript syntax check: PASS
-- Required 11.0 systems present: PASS
-- Save/load migration path retained: PASS
-- No external runtime dependencies: PASS
-- iPhone touch controls remain based on the existing pointer/touch implementation.
-
-This is a web prototype. No Unity/Xcode build or physical iPhone execution is claimed by this release.
+### Important
+This is an iPhone-oriented web prototype. It has not been claimed as a compiled native iOS build or physically device-tested by the development environment.

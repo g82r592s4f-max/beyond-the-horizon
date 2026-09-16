@@ -2,8 +2,8 @@
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="bth-build" content="11.0-soul-home-experience">
-<title>BTH 11.0 — BEYOND THE HORIZON · SOUL & HOME</title>
+<meta name="bth-build" content="12.0-first-real-day">
+<title>BTH 12.0 — BEYOND THE HORIZON · THE FIRST REAL DAY</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
@@ -1035,6 +1035,104 @@ function bth13HUD(){
  // Bridge into the existing day-based simulation without changing its cadence.
  const oldLoopDaily=BTH100.daily.bind(BTH100);
  BTH100.daily=function(){oldLoopDaily();BTH110.daily();};
+})();
+</script>
+
+<!-- =========================================================
+     BTH 12.0 — THE FIRST REAL DAY
+     Vertical-slice layer: a coherent first-day survival loop.
+     It does not replace earlier systems; it connects physiology,
+     weather, shelter, fire, observation, memory and rest into one
+     causal day/night experience.
+     ========================================================= -->
+<div id="bth12panel" style="position:fixed;left:8px;top:88px;z-index:38;padding:9px 10px;background:rgba(4,10,8,.78);color:#fff;font:12px system-ui;border-radius:11px;pointer-events:auto;max-width:285px;border:1px solid rgba(255,255,255,.15)">
+ <b>THE FIRST REAL DAY · 12.0</b><br>
+ <span id="bth12status">День начинается.</span><br>
+ <span id="bth12need" style="opacity:.82">Сначала осмотрись.</span>
+</div>
+<script>
+(function(){
+ const KEY12='bth05-save';
+ const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+ function init(){
+   if(!S.firstDay)S.firstDay={startedDay:S.day||1,phase:'morning',observed:false,ate:false,drank:false,fire:false,shelter:false,slept:false,wetness:0,exposure:0,restQuality:0,returnCount:0};
+   const f=S.firstDay;
+   for(const k of ['observed','ate','drank','fire','shelter','slept'])if(typeof f[k]!=='boolean')f[k]=false;
+   for(const k of ['wetness','exposure','restQuality'])if(!Number.isFinite(f[k]))f[k]=0;
+   if(!f.phase)f.phase='morning';
+ }
+ function phase(){const h=Math.floor((S.minutes||0)/60);return h<6?'night':h<12?'morning':h<18?'day':'evening'}
+ function status(){
+   init(); const f=S.firstDay, p=phase(); f.phase=p;
+   const shelter=!!S.tools?.shelter, fire=!!S.tools?.fire;
+   let advice='';
+   if(S.water<45)advice='Найди воду или безопасный источник.';
+   else if(S.food<45)advice='Найди пищу до наступления ночи.';
+   else if(!shelter)advice='Найди место для укрытия.';
+   else if(!fire && (S.weather?.temp||12)<8)advice='Холодно: подумай об огне.';
+   else if(p==='evening'||p==='night')advice='Скоро ночь. Подготовь место для сна.';
+   else advice='Наблюдай. Мир не обязан объяснять себя сразу.';
+   return {phase:p,advice,water:Math.round(S.water),food:Math.round(S.food),energy:Math.round(S.energy),exposure:Math.round(f.exposure*100),rest:Math.round(f.restQuality*100)};
+ }
+ function observeFirst(){
+   init(); const f=S.firstDay;
+   f.observed=true;
+   f.exposure=Math.max(0,f.exposure-.08);
+   if(typeof remember==='function')remember('Первый день: я остановился и осмотрел место вокруг себя.');
+   if(typeof discover==='function')discover('Первое наблюдение: место имеет собственный ритм.');
+   toast('Ты остановился и осмотрелся.');
+   hud();
+ }
+ function step(seconds){
+   init(); const f=S.firstDay;
+   const cold=(S.weather?.temp||12)<6, wet=(S.weather?.type==='дождь');
+   if(wet)f.wetness=clamp(f.wetness+seconds*.002);
+   else f.wetness=clamp(f.wetness-seconds*.0005);
+   const protectedNow=!!S.tools?.shelter && Math.hypot(S.x-(S.experience?.home?.x??1e9),S.y-(S.experience?.home?.y??1e9))<90;
+   const warmNow=!!S.tools?.fire;
+   if((cold||wet)&&!protectedNow&&!warmNow)f.exposure=clamp(f.exposure+seconds*.00012);
+   else f.exposure=clamp(f.exposure-seconds*.00008);
+   if(f.exposure>.65){S.energy=Math.max(0,S.energy-seconds*.002); if(typeof remember==='function' && Math.random()<seconds*.0002)remember('Организм накапливает последствия холода и воздействия погоды.');}
+ }
+ function onDayChange(){
+   init(); const f=S.firstDay;
+   if(f.slept)f.returnCount++;
+   f.startedDay=S.day||1;f.phase='morning';f.observed=false;f.ate=false;f.drank=false;f.fire=!!S.tools?.fire;f.shelter=!!S.tools?.shelter;f.slept=false;
+   if(typeof remember==='function')remember('Началось новое утро. Мир продолжал существовать без меня.');
+ }
+ function sleepQuality(){
+   init(); const f=S.firstDay;
+   let q=.25;
+   if(S.tools?.shelter)q+=.35;
+   if(S.tools?.fire)q+=.2;
+   if(S.water>30)q+=.08;
+   if(S.food>30)q+=.08;
+   q-=f.exposure*.25;
+   return clamp(q);
+ }
+ function beforeSleep(){
+   init(); const q=sleepQuality();S.firstDay.restQuality=q;S.firstDay.slept=true;S.firstDay.shelter=!!S.tools?.shelter;S.firstDay.fire=!!S.tools?.fire;
+   if(typeof remember==='function')remember('Первый день: подготовка ко сну. Качество отдыха зависело от условий, а не от кнопки.');
+ }
+ function hud(){const e=document.getElementById('bth12status'),n=document.getElementById('bth12need');if(!e||!n)return;const x=status();e.textContent='Сейчас: '+x.phase+' · вода '+x.water+' · еда '+x.food+' · энергия '+x.energy;n.textContent=x.advice+' Воздействие погоды: '+x.exposure+'% · отдых: '+x.rest+'%';}
+ init();
+ const oldUpdate12=window.update;
+ window.update=function(dt){oldUpdate12(dt);step(dt);hud();};
+ const oldSleep12=window.sleep;
+ window.sleep=function(){beforeSleep();oldSleep12();onDayChange();hud();};
+ const oldCollect12=window.collect;
+ window.collect=function(){oldCollect12();init();S.firstDay.observed=true;};
+ const oldDrink12=window.drink;
+ window.drink=function(){oldDrink12();if(S.water>45)S.firstDay.drank=true;};
+ const oldEat12=window.eat;
+ window.eat=function(){oldEat12();if(S.food>45)S.firstDay.ate=true;};
+ const oldFire12=window.makeFire;
+ window.makeFire=function(){oldFire12();if(S.tools?.fire)S.firstDay.fire=true;};
+ const oldCraft12=window.craft;
+ window.craft=function(){oldCraft12();if(S.tools?.shelter)S.firstDay.shelter=true;};
+ window.BTH120={init,status,observeFirst,sleepQuality};
+ const b=document.createElement('button');b.textContent='Осмотреться';b.type='button';b.style='margin-top:5px';b.onclick=observeFirst;document.getElementById('bth12panel').appendChild(b);
+ hud();setInterval(hud,1000);
 })();
 </script>
 </body></html><style>
