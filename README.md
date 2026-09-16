@@ -1,22 +1,15 @@
-# BEYOND THE HORIZON — BTH 12.0
-## THE FIRST REAL DAY
+BTH 20.1 — VERTICAL SLICE: LIFE
 
-Vertical-slice layer connecting the existing survival, weather, physiology, shelter, fire, memory and SOUL & HOME systems into a coherent first-day loop.
+This build deepens BTH 20.0 without changing the original progression.
 
-### Added
-- First-day persistent state and phase tracking.
-- Contextual survival guidance based on actual needs and conditions.
-- Weather exposure accumulation/recovery.
-- Shelter/fire protection influence on exposure.
-- Observation action and first-day memory.
-- Sleep quality derived from shelter, fire, food, water and exposure.
-- New-morning memory and continuity.
-- Backward-compatible localStorage migration.
+Added:
+- persistent home location and return distance
+- quiet/comfort moments as world history
+- animal observation interaction
+- human encounter foundation
+- first-day phase HUD
+- integrated sleep -> autonomous world tick
+- dedicated BTH 20.1 persistence layer
 
-### Verification
-- JavaScript syntax: PASS (Node --check)
-- No external runtime dependencies introduced.
-- Existing systems retained rather than replaced.
-
-### Important
-This is an iPhone-oriented web prototype. It has not been claimed as a compiled native iOS build or physically device-tested by the development environment.
+This is a browser/iPhone prototype, not a compiled iOS binary.
+Static syntax/integrity checks are required before device testing.

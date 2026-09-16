@@ -2,8 +2,8 @@
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="bth-build" content="12.0-first-real-day">
-<title>BTH 12.0 — BEYOND THE HORIZON · THE FIRST REAL DAY</title>
+<meta name="bth-build" content="20.0-first-real-day">
+<title>BTH 20.1 — BEYOND THE HORIZON · VERTICAL SLICE</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142019;color:#eef3e8;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
@@ -1039,14 +1039,14 @@ function bth13HUD(){
 </script>
 
 <!-- =========================================================
-     BTH 12.0 — THE FIRST REAL DAY
+     BTH 20.0 — THE FIRST REAL DAY
      Vertical-slice layer: a coherent first-day survival loop.
      It does not replace earlier systems; it connects physiology,
      weather, shelter, fire, observation, memory and rest into one
      causal day/night experience.
      ========================================================= -->
 <div id="bth12panel" style="position:fixed;left:8px;top:88px;z-index:38;padding:9px 10px;background:rgba(4,10,8,.78);color:#fff;font:12px system-ui;border-radius:11px;pointer-events:auto;max-width:285px;border:1px solid rgba(255,255,255,.15)">
- <b>THE FIRST REAL DAY · 12.0</b><br>
+ <b>THE FIRST REAL DAY · 20.0</b><br>
  <span id="bth12status">День начинается.</span><br>
  <span id="bth12need" style="opacity:.82">Сначала осмотрись.</span>
 </div>
@@ -1135,6 +1135,41 @@ function bth13HUD(){
  hud();setInterval(hud,1000);
 })();
 </script>
+
+<style>
+#bth20slice{position:fixed;left:10px;top:92px;z-index:12;max-width:270px;padding:9px 11px;background:#07110ddd;border:1px solid #ffffff22;border-radius:12px;color:#fff;font:12px system-ui;backdrop-filter:blur(5px)}
+#bth20slice button{min-height:38px;margin:4px 3px 0 0;padding:0 9px;font-size:11px}
+#bth20slice .muted{opacity:.72}.bth20ok{margin-top:5px}
+</style>
+<div id="bth20slice"><b>BTH 20.1 · Жизнь</b><div id="bth20phase">Фаза: утро</div><div id="bth20home">Дом: не выбран</div><div id="bth20enc">Рядом: —</div><div class="bth20ok"><button id="bth20homeBtn">Сделать домом</button><button id="bth20observe">Наблюдать</button><button id="bth20meet">Познакомиться</button><button id="bth20quiet">Побыть здесь</button></div><div class="muted">Твои действия становятся частью истории мира.</div></div>
+<script>
+(function(){
+ const V=window.BTH20SLICE=window.BTH20SLICE||{};
+ V.state=V.state||{version:'20.1',home:null,visits:0,quietMoments:0,encounters:0,firstDay:{started:true,completed:false},phase:'morning'};
+ function norm(){
+  if(!V.state||typeof V.state!=='object')V.state={version:'20.1'};
+  V.state.version='20.1'; V.state.visits=+V.state.visits||0; V.state.quietMoments=+V.state.quietMoments||0; V.state.encounters=+V.state.encounters||0;
+  if(!V.state.firstDay)V.state.firstDay={started:true,completed:false};
+ }
+ function phase(){const h=Math.floor((S.minutes||0)/60);return h<6?'ночь':h<11?'утро':h<17?'день':h<21?'вечер':'ночь'}
+ function nearestAnimal(){let best=null,bd=110;for(const a of (S.animals||[])){const d=dist(S,a);if(d<bd){best=a;bd=d}}return best}
+ function nearestNpc(){const arr=window.BTH_STATE?.npcs||[];let best=null,bd=150;for(const n of arr){if(typeof n.x!=='number')continue;const d=Math.hypot((S.x||0)-n.x,(S.y||0)-n.y);if(d<bd){best=n;bd=d}}return best}
+ V.setHome=function(){norm();V.state.home={x:S.x,y:S.y,day:S.day,weather:S.weather?.type||'ясно'};V.state.visits++;remember('Это место стало домом.');toast('Место стало твоим домом');hud()};
+ V.quiet=function(){norm();V.state.quietMoments++;remember('Игрок остановился и просто побыл здесь.');toast('Тишина. Мир продолжает жить.');hud()};
+ V.observe=function(){const a=nearestAnimal();if(a){V.state.encounters++;if(window.BTH_STATE?.BTH13?.observeAnimal)window.BTH_STATE.BTH13.observeAnimal(a.id);remember('Наблюдение за животным: '+(a.kind||a.species||'неизвестное'));toast('Ты наблюдаешь за '+(a.kind||a.species||'животным'));}else{bth11FieldObservation();toast('Наблюдение: рядом нет крупного животного');}hud()};
+ V.meet=function(){let n=nearestNpc();if(!n&&window.BTH_STATE?.BTH15){n=window.BTH_STATE.BTH15.createNPC('Илья');n.x=S.x+35;n.y=S.y+25;n.memory=[];toast('Вдали замечен человек');}if(n){n.memory=n.memory||[];n.memory.push({type:'met',day:S.day});remember('Встреча с человеком: '+n.name);toast('Вы познакомились: '+n.name);}else toast('Сегодня рядом никого нет');hud()};
+ function saveSlice(){localStorage.setItem('bth20-slice',JSON.stringify(V.state))}
+ function loadSlice(){try{const x=JSON.parse(localStorage.getItem('bth20-slice'));if(x)Object.assign(V.state,x)}catch(e){}norm()}
+ function hud(){norm();const p=phase();V.state.phase=p;document.getElementById('bth20phase').textContent='Фаза: '+p;document.getElementById('bth20home').textContent=V.state.home?'Дом: '+Math.round(Math.hypot(S.x-V.state.home.x,S.y-V.state.home.y))+' м от дома':'Дом: не выбран';const a=nearestAnimal();document.getElementById('bth20enc').textContent='Рядом: '+(a?(a.kind||a.species||'животное'):'ничего необычного');if(S.day>1)V.state.firstDay.completed=true;saveSlice()}
+ loadSlice();
+ document.getElementById('bth20homeBtn').onclick=V.setHome;document.getElementById('bth20observe').onclick=V.observe;document.getElementById('bth20meet').onclick=V.meet;document.getElementById('bth20quiet').onclick=V.quiet;
+ const oldSleep=window.sleep;window.sleep=function(){oldSleep();if(window.BTH_STATE?.BTH18)window.BTH_STATE.BTH18.tick();remember('После сна мир изменился без игрока.');hud()};
+ const oldSave=window.save;window.save=function(){oldSave();saveSlice();toast('История сохранена · BTH 20.1')};
+ const oldUpdate=window.update;window.update=function(dt){oldUpdate(dt);if(Math.random()<dt*.02)hud()};
+ setInterval(hud,1000);hud();
+})();
+</script>
+
 </body></html><style>
 #bth10panel{position:fixed;left:8px;bottom:92px;z-index:35;padding:9px 10px;background:rgba(4,10,8,.78);color:#fff;font:12px system-ui;border-radius:10px;pointer-events:auto;max-width:290px;border:1px solid rgba(255,255,255,.16)}
 #bth10panel button{min-height:38px;font-size:12px;margin-top:5px;padding:5px 8px}
@@ -1296,5 +1331,31 @@ BTH100.init();
  hud();setInterval(hud,1000);
  // Safe migration of old saves without resetting progress.
  try{S.version='10.0';BTH90.migrate();BTH90.ensureRegions(64);BTH90.ensureHydrology();BTH100.migrate();BTH100.seedSettlement();BTH100.syncGlobalCivilization();}catch(e){console.warn('BTH10 migration',e)}
+})();
+
+/* BTH 13-20 integrated vertical-slice systems */
+(function(){
+  const root=window.BTH_STATE=window.BTH_STATE||{};
+  root.life=root.life||{day:1, phase:'morning', shelter:false, fire:false};
+  root.animals=root.animals||[
+    {id:'wolf-01',species:'wolf',name:'Серый',x:0,y:0,hunger:.35,thirst:.25,energy:.8,fear:.1,health:1,territory:1,memory:[],alive:true},
+    {id:'deer-01',species:'deer',name:'Лань',x:0,y:0,hunger:.2,thirst:.3,energy:.9,fear:.2,health:1,territory:1,memory:[],alive:true}
+  ];
+  root.ecosystem=root.ecosystem||{plants:100,herbivores:18,predators:4,water:1,soil:1,pressure:0,history:[]};
+  root.npcs=root.npcs||[];
+  root.settlements=root.settlements||[];
+  root.technology=root.technology||{known:[],experiments:[],reliability:0};
+  root.worldMemory=root.worldMemory||[];
+  root.generations=root.generations||{lineage:[],legacy:[],activeCharacter:'Первый исследователь'};
+  root.verticalSlice=root.verticalSlice||{version:'20.0',milestones:{13:false,14:false,15:false,16:false,17:false,18:false,19:false,20:true}};
+  function log(type,text){root.worldMemory.push({t:Date.now(),type,text}); if(root.worldMemory.length>500)root.worldMemory.shift();}
+  root.BTH13={observeAnimal(id){let a=root.animals.find(x=>x.id===id); if(!a)return null; a.memory.push({type:'observed',t:Date.now()}); log('biology','Наблюдение: '+a.name+' / '+a.species); return {...a};}};
+  root.BTH14={step(){let e=root.ecosystem; e.herbivores=Math.max(0,e.herbivores+Math.round((e.plants-80)/40)-Math.round(e.predators/8)); e.predators=Math.max(0,e.predators+(e.herbivores>15?1: -1)); e.plants=Math.max(0,Math.min(140,e.plants+Math.round(4-e.herbivores*.08))); e.pressure=Math.max(0,e.pressure+(e.herbivores>25?.05:-.03)); e.history.push({day:root.life.day,plants:e.plants,herbivores:e.herbivores,predators:e.predators}); log('ecosystem','Экосистема изменилась без участия игрока'); return {...e};}};
+  root.BTH15={createNPC(name='Исследователь'){let n={id:'npc-'+(root.npcs.length+1),name,age:24,health:1,needs:{food:.2,water:.2,rest:.2},skills:{craft:.1,science:.1},memory:[],relationships:{},occupation:'наблюдатель'};root.npcs.push(n);log('npc','Появился новый человек: '+name);return n;}};
+  root.BTH16={createSettlement(name='Поселение'){let x={id:'settlement-'+(root.settlements.length+1),name,population:root.npcs.length||1,food:60,water:60,energy:10,knowledge:1,history:[]};root.settlements.push(x);log('settlement','Возникло поселение: '+name);return x;}};
+  root.BTH17={experiment(problem,principle){let e={problem,principle,success:false,attempt:root.technology.experiments.length+1};root.technology.experiments.push(e); if(principle){e.success=true;root.technology.known.push(principle);root.technology.reliability=Math.min(1,root.technology.reliability+.05);} log('technology','Эксперимент: '+problem);return e;}};
+  root.BTH18={tick(){root.BTH14.step(); root.settlements.forEach(s=>{s.food=Math.max(0,s.food+s.population*.4-root.ecosystem.pressure*2);s.water=Math.max(0,s.water+s.population*.3);s.history.push({day:root.life.day,population:s.population,food:s.food});}); root.npcs.forEach(n=>{n.age+=1/3650;n.needs.food=Math.min(1,n.needs.food+.02);n.needs.water=Math.min(1,n.needs.water+.03);});log('world','Мир продолжил развиваться без игрока');return root;}};
+  root.BTH19={continueAs(name){let old=root.generations.activeCharacter;root.generations.lineage.push({from:old,to:name,day:root.life.day});root.generations.legacy.push({character:old,day:root.life.day,memories:root.worldMemory.slice(-20)});root.generations.activeCharacter=name;log('legacy','История продолжена новым поколением: '+name);return root.generations;}};
+  root.BTH20={summary(){return {version:'20.0',days:root.life.day,animals:root.animals.filter(a=>a.alive).length,plants:root.ecosystem.plants,npcs:root.npcs.length,settlements:root.settlements.length,technologies:root.technology.known.length,memories:root.worldMemory.length,activeCharacter:root.generations.activeCharacter};}};
 })();
 </script>
